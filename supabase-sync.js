@@ -104,7 +104,9 @@
             desc: item.desc || '', video: item.video || '', pdf: item.pdf || '',
             image: item.image || '', data: item
           }, { onConflict: 'id' }).then(function (res) {
-            if (!res.error && typeof showToast === 'function') {
+            if (res.error) {
+              alert('Gagal sinkron Praktis: ' + res.error.message);
+            } else if (typeof showToast === 'function') {
               showToast('Ibadah praktis tersinkron ke server ✓', 'success');
             }
           });
@@ -121,7 +123,31 @@
       };
     }
 
-    // 4. Sinkronisasi Hot News & Hapus
+    // 4. Sinkronisasi Hot News (Simpan & Hapus)
+    if (typeof window.saveHotNews === 'function' && !window._epaiSaveHotHooked) {
+      window._epaiSaveHotHooked = true;
+      var origSaveHot = window.saveHotNews;
+      window.saveHotNews = function () {
+        var editId = (document.getElementById('hotId') && document.getElementById('hotId').value) || '';
+        origSaveHot();
+        var list = db.hotnews || [];
+        var item = editId ? list.find(function (x) { return x.id === editId; }) : list[list.length - 1];
+        if (item) {
+          sb.from('hotnews').upsert({
+            id: item.id, title: item.title, kelas: item.kelas || '',
+            desc: item.desc || '', video: item.video || '', pdf: item.pdf || '',
+            image: item.image || '', data: item
+          }, { onConflict: 'id' }).then(function (res) {
+            if (res.error) {
+              alert('Gagal sinkron Hot News: ' + res.error.message);
+            } else if (typeof showToast === 'function') {
+              showToast('Hot News tersinkron ke semua HP ✓', 'success');
+            }
+          });
+        }
+      };
+    }
+
     if (typeof window.deleteHotNews === 'function' && !window._epaiDelHotHooked) {
       window._epaiDelHotHooked = true;
       var origDelHot = window.deleteHotNews;
@@ -138,11 +164,15 @@
       window.saveMarqueeText = function () {
         origSaveMarq();
         var val = localStorage.getItem('epai_marquee_text') || '';
-        if (val) {
-          sb.from('app_settings').upsert({
-            key: 'marquee_text', value: val, updated_at: new Date().toISOString()
-          }, { onConflict: 'key' }).then(function () {});
-        }
+        sb.from('app_settings').upsert({
+          key: 'marquee_text', value: val, updated_at: new Date().toISOString()
+        }, { onConflict: 'key' }).then(function (res) {
+          if (res.error) {
+            alert('Gagal sinkron Pengumuman: ' + res.error.message);
+          } else if (typeof showToast === 'function') {
+            showToast('Running text tersinkron ke semua HP ✓', 'success');
+          }
+        });
       };
     }
 
@@ -156,15 +186,18 @@
       };
     }
 
-    // 7. Tarik Semua Data Tambahan (Students, Praktis, Pengumuman) & Auto-Refresh UI
-    async function syncExtraTables() {
+    // 7. Tarik Semua Data (Students, Materials, Praktis, HotNews, Pengumuman) & Auto-Refresh UI
+    async function syncAllTables() {
       try {
         var extra = await Promise.all([
           sb.from('students').select('*').limit(2000),
           sb.from('praktis').select('*').limit(500),
-          sb.from('app_settings').select('*').eq('key', 'marquee_text').maybeSingle()
+          sb.from('app_settings').select('*').eq('key', 'marquee_text').maybeSingle(),
+          sb.from('materials').select('*').limit(500),
+          sb.from('hotnews').select('*').limit(200)
         ]);
 
+        // Students
         if (!extra[0].error && extra[0].data && extra[0].data.length) {
           var stMap = {};
           if (typeof getStudents === 'function') getStudents().forEach(function (s) { stMap[s.u] = s; });
@@ -179,17 +212,15 @@
           if (typeof refreshStudentCounts === 'function') refreshStudentCounts();
         }
 
-        if (!extra[1].error && extra[1].data && extra[1].data.length) {
-          var prMap = {};
-          (db.praktis || []).forEach(function (p) { prMap[p.id] = p; });
-          extra[1].data.forEach(function (row) {
-            var item = (row.data && typeof row.data === 'object') ? row.data : row;
-            if (item && item.id) prMap[item.id] = item;
+        // Praktis
+        if (!extra[1].error && extra[1].data) {
+          db.praktis = extra[1].data.map(function (row) {
+            return (row.data && typeof row.data === 'object') ? row.data : row;
           });
-          db.praktis = Object.keys(prMap).map(function (k) { return prMap[k]; });
         }
 
-        if (!extra[2].error && extra[2].data && extra[2].data.value) {
+        // Running Text
+        if (!extra[2].error && extra[2].data && typeof extra[2].data.value === 'string') {
           var curLocal = localStorage.getItem('epai_marquee_text') || '';
           if (curLocal !== extra[2].data.value) {
             localStorage.setItem('epai_marquee_text', extra[2].data.value);
@@ -197,39 +228,20 @@
           }
         }
 
+        // Materials
+        if (!extra[3].error && extra[3].data) {
+          db.materials = extra[3].data.map(function (row) {
+            return (row.data && typeof row.data === 'object') ? row.data : row;
+          });
+        }
+
+        // Hot News
+        if (!extra[4].error && extra[4].data) {
+          db.hotnews = extra[4].data.map(function (row) {
+            return (row.data && typeof row.data === 'object') ? row.data : row;
+          });
+        }
+
         localStorage.setItem('epai_offline_v1', JSON.stringify(db));
 
         if (typeof current !== 'undefined' && current) {
-          if (current.role === 'student' || current.role === 'parent') {
-            if (typeof renderLessons === 'function') renderLessons();
-            if (typeof renderStudentPraktis === 'function') renderStudentPraktis();
-            if (typeof renderStudentHotNews === 'function') renderStudentHotNews();
-            if (typeof renderMyScores === 'function') renderMyScores();
-          } else if (current.role === 'teacher') {
-            if (typeof renderMaterialAdmin === 'function') renderMaterialAdmin();
-            if (typeof renderPraktisAdmin === 'function') renderPraktisAdmin();
-            if (typeof renderHotNewsAdmin === 'function') renderHotNewsAdmin();
-          }
-        }
-      } catch (e) {}
-    }
-
-    // 8. Tombol Migrasi Semua Data Siswa & Ibadah Praktis ke Server
-    window.syncAllMasterDataToCloud = async function () {
-      if (typeof showToast === 'function') showToast('Menyinkronkan seluruh data ke server...', '');
-      var stList = (typeof getStudents === 'function' ? getStudents() : []).map(function (item) {
-        return {
-          username: item.u, name: item.n, kelas: item.c,
-          absen: item.a || 0, jk: item.g || 'L', active: item.active !== false
-        };
-      });
-      var prList = (db.praktis || []).map(function (item) {
-        return {
-          id: item.id, title: item.title, kelas: item.kelas || '',
-          desc: item.desc || '', video: item.video || '', pdf: item.pdf || '',
-          image: item.image || '', data: item
-        };
-      });
-      var r1 = stList.length ? await sb.from('students').upsert(stList, { onConflict: 'username' }) : { error: null };
-      var r2 = prList.length ? await sb.from('praktis').upsert(prList, { onConflict: 'id' }) : { error: null };
-      if (r1.error || r2.error) {
