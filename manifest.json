@@ -1,25 +1,13 @@
 {
-  "name": "E-PAIBP SMPN 1 Mertoyudan",
+  "name": "E-PAIBP SPENASA",
   "short_name": "E-PAIBP",
-  "description": "E-Learning Pendidikan Agama Islam dan Budi Pekerti SMPN 1 Mertoyudan",
-  "start_url": "/",
-  "scope": "/",
+  "start_url": "/epai-spenasa/",
+  "scope": "/epai-spenasa/",
   "display": "standalone",
-  "background_color": "#0f3d2e",
-  "theme_color": "#0b4636",
-  "orientation": "portrait",
+  "background_color": "#009688",
+  "theme_color": "#009688",
   "icons": [
-    {
-      "src": "logo.jpg",
-      "sizes": "192x192",
-      "type": "image/jpeg",
-      "purpose": "any"
-    },
-    {
-      "src": "logo.jpg",
-      "sizes": "512x512",
-      "type": "image/jpeg",
-      "purpose": "any"
-    }
+    { "src": "logo.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "logo.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable" }
   ]
 }
