@@ -1,7 +1,7 @@
 // E-PAIBP Cloud Sync - Simpan semua data ke Supabase
 // GANTI 2 BARIS DI BAWAH INI dengan punya kamu dari Supabase Dashboard
-const SUPABASE_URL = "PASTE_URL_SUPABASE_KAMU_DISINI";
-const SUPABASE_KEY = "PASTE_ANON_KEY_SUPABASE_KAMU_DISINI";
+const SUPABASE_URL = "https://amhfsdjarrlsbnaferbn.supabase.co";
+const SUPABASE_KEY = "sb_publishable_KdyJrDYqjktLkvzPVmDZ_A_ZKfdN3tk";
 
 let supa = null;
 if (window.supabase && SUPABASE_URL.startsWith("http")) {
