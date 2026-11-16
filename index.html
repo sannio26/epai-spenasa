@@ -8833,5 +8833,29 @@ setTimeout(function(){
 
 </script>
 
+<script>
+// PATCH 16 Nov: Video + Running Text Sync
+document.addEventListener('click', function(ev){
+  var b = ev.target.closest('[data-video]');
+  if(b){ ev.preventDefault(); openVideoModal(b.getAttribute('data-video'), b.getAttribute('data-title')||'Video Pembelajaran'); }
+});
+window.saveMarqueeText = function(){
+  var ed = document.getElementById('marqueeEdit');
+  if(!ed) return;
+  var t = (ed.value||'').trim();
+  if(!t){ alert('Teks tidak boleh kosong'); return; }
+  localStorage.setItem('epai_marquee_text', t);
+  try{
+    if(!db.hotnews) db.hotnews=[];
+    var f=null;
+    for(var i=0;i<db.hotnews.length;i++){ if(db.hotnews[i] && db.hotnews[i].id==='__marquee__'){ f=db.hotnews[i]; break; } }
+    if(f){ f.desc=t; f.title=t; }
+    else{ db.hotnews.push({id:'__marquee__', title:t, desc:t, kelas:'', video:'', pdf:'', image:'', createdAt:Date.now()}); }
+    saveDB();
+  }catch(e){}
+  loadMarqueeText();
+  showToast('Running text disimpan & akan nyebar ke HP siswa','success');
+};
+</script>
 </body>
 </html>
