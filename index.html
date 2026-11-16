@@ -8856,6 +8856,45 @@ window.saveMarqueeText = function(){
   loadMarqueeText();
   showToast('Running text disimpan & akan nyebar ke HP siswa','success');
 };
+<script>
+// PATCH 2 - 16 Nov: Marquee tarik langsung + PDF fallback
+setInterval(function(){
+  try{
+    if(!window.sb) return;
+    window.sb.from('hotnews').select('*').eq('id','__marquee__').maybeSingle().then(function(res){
+      if(res.error || !res.data) return;
+      var d = res.data.data || res.data;
+      var t = (d.desc || d.title || '').trim();
+      if(!t) return;
+      var el = document.getElementById('marqueeText');
+      if(el && el.textContent.trim() !== t){
+        var clean = t.replace(/<[^>]*>/g,'').replace(/\n+/g,'  ·  ');
+        el.innerHTML = clean;
+        var el2 = document.getElementById('marqueeText2');
+        if(el2) el2.innerHTML = clean;
+        try{ localStorage.setItem('epai_marquee_text', t); }catch(e){}
+        var track = document.getElementById('marqueeTrack');
+        if(track){ track.style.animation='none'; void track.offsetWidth; track.style.animation=''; }
+      }
+    });
+  }catch(e){}
+}, 5000);
+
+window.downloadMaterialPdf = function(kelas, semester, chapter, mid){
+  try{
+    var list = (typeof db!=='undefined' && db.materials) ? db.materials : [];
+    var m = null;
+    for(var i=0;i<list.length;i++){ if(String(list[i].id||list[i]._mid||'')===String(mid)){ m=list[i]; break; } }
+    if(m && m.pdfData){
+      var a=document.createElement('a'); a.href=m.pdfData; a.download=m.pdfName||'materi.pdf'; a.click(); return;
+    }
+    if(m && (m.url || m.pdf)){
+      window.open(m.url||m.pdf, '_blank'); return;
+    }
+    alert('PDF ini hanya tersimpan di HP guru (file upload tidak ikut ke server). Minta guru ganti materi ini pakai Link Google Drive / URL PDF, bukan upload file.');
+  }catch(e){ alert('PDF belum tersedia di perangkat ini.'); }
+};
+</script>
 </script>
 </body>
 </html>
