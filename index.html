@@ -1,8 +1,6 @@
 <!DOCTYPE html>
 <html lang="id">
 <head>
-  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="supabase-sync.js"></script>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
 <meta name="theme-color" content="#0b4636">
@@ -3405,6 +3403,10 @@ header {
   .raport-page:last-child { page-break-after:auto; break-after:auto; }
 }
 
+
+/* Sembunyikan jam sudut (jadwal salat tetap tampil) */
+#wibCorner { display: none !important; }
+
 </style>
 
 <link rel="manifest" href="manifest.json">
@@ -3899,7 +3901,8 @@ function renderIqra() {
       <div class="actions">
         <button type="button" class="secondary" onclick="exportAllJSON()">Unduh backup JSON</button>
         <button type="button" class="secondary" onclick="exportJournalsCSV()">Unduh jurnal CSV</button>
-        <button type="button" class="danger" onclick="clearAllData()">Hapus data lokal</button>
+        <button type="button" class="secondary" onclick="hapusDataLokal()">Hapus Data Lokal (HP ini saja)</button>
+        <button type="button" class="danger" style="background:#b91c1c!important" onclick="resetTotal()">RESET TOTAL - Hapus Semua Data Uji Coba (Server + HP)</button>
       </div>
     </div>
     <div id="studentData" class="card tabcontent hidden">
@@ -4275,7 +4278,7 @@ function renderIqra() {
       <input id="matVideo" placeholder="https://www.youtube.com/watch?v=... atau https://youtu.be/...">
       <label>Link PDF / file materi (opsional)</label>
       <input id="matUrl" placeholder="https://drive.google.com/... atau link PDF">
-      <label>📁 Upload File PDF langsung (opsional, maks 4MB)</label>
+      <label>📁 Upload File PDF langsung (opsional, maks 25MB)</label>
       <input type="file" id="matPdfFile" accept=".pdf,application/pdf" onchange="previewMatPdf(this)">
       <input id="matPdfData" type="hidden" value="">
       <input id="matPdfName" type="hidden" value="">
@@ -4809,6 +4812,7 @@ function latestAssessmentFor(username, itemTitle) {
 }
 
 function renderMyScores() {
+  try { dedupAssessments(); } catch (e) {}
   var box = document.getElementById('myScores');
   if (!box || !current) return;
   var tested = 0;
@@ -4872,7 +4876,7 @@ function renderLessons() {
     }
     if (m.pdfData || m.pdfName) {
       var pdfLabel = m.pdfName || 'materi.pdf';
-      html += '<p style="margin-top:10px"><button type="button" class="btn-link pdf" onclick="downloadMaterialPdf(' + m.kelas + ',' + m.semester + ',' + m.chapter + ')">⬇️ Download PDF - ' + esc(pdfLabel) + '</button></p>';
+      html += '<p style="margin-top:10px"><button type="button" class="btn-link pdf" onclick="downloadMaterialPdf(' + m.kelas + ',' + m.semester + ',' + m.chapter + ',\'' + (m.id || m._mid || '') + '\')">⬇️ Download PDF - ' + esc(pdfLabel) + '</button></p>';
     } else if (m.url) {
       html += '<p><a class="btn-link pdf" href="' + esc(m.url) + '" target="_blank" rel="noopener">📄 Buka PDF / materi</a></p>';
     }
@@ -5082,7 +5086,24 @@ function getPredikat(avg) {
   return 'E (Sangat Kurang)';
 }
 
+
+/* Dedup nilai praktik: 1 siswa + 1 materi = nilai terakhir saja */
+function dedupAssessments() {
+  if (!db || !Array.isArray(db.assessments)) return;
+  var map = Object.create(null);
+  var order = [];
+  for (var i = 0; i < db.assessments.length; i++) {
+    var a = db.assessments[i];
+    if (!a || !a.username || !a.item) continue;
+    var k = String(a.username) + '|' + String(a.item);
+    if (!(k in map)) order.push(k);
+    map[k] = a; // yang belakangan menimpa (nilai terakhir)
+  }
+  db.assessments = order.map(function(k){ return map[k]; });
+}
+
 function renderRaport() {
+  try { dedupAssessments(); } catch (e) {}
   var data = getRaportData();
   var box = document.getElementById('raportOutput');
   if (!data || !box) return;
@@ -5564,7 +5585,8 @@ function deleteMaterial(id) {
   showToast('Materi dihapus', 'success');
 }
 
-function pdfStoreKey(kelas, semester, chapter) {
+function pdfStoreKey(kelas, semester, chapter, id) {
+  if (id) return 'epai_pdf_id_' + String(id);
   return 'epai_pdf_' + Number(kelas) + '_' + Number(semester) + '_' + Number(chapter);
 }
 
@@ -5585,8 +5607,8 @@ function previewMatPdf(input) {
     input.value = '';
     return;
   }
-  if (file.size > 4 * 1024 * 1024) {
-    alert('Ukuran PDF melebihi 4MB. Pilih file yang lebih kecil.');
+  if (file.size > 25 * 1024 * 1024) {
+    alert('Ukuran PDF melebihi 25MB. Pilih file yang lebih kecil.');
     input.value = '';
     if (dataEl) dataEl.value = '';
     if (nameEl) nameEl.value = '';
@@ -5605,16 +5627,20 @@ function previewMatPdf(input) {
   reader.readAsDataURL(file);
 }
 
-function downloadMaterialPdf(kelas, semester, chapter) {
+function downloadMaterialPdf(kelas, semester, chapter, mid) {
   var found = null;
   for (var i = 0; i < (db.materials || []).length; i++) {
     var m = db.materials[i];
-    if (m.kelas === kelas && m.semester === semester && m.chapter === chapter) { found = m; break; }
+    if (mid && (m.id === mid || m._mid === mid)) { found = m; break; }
+    if (!mid && m.kelas === kelas && m.semester === semester && m.chapter === chapter) { found = m; break; }
   }
   var dataUrl = (found && found.pdfData) || '';
   var name = (found && found.pdfName) || 'materi.pdf';
   if (!dataUrl) {
-    try { dataUrl = localStorage.getItem(pdfStoreKey(kelas, semester, chapter)) || ''; } catch (e) {}
+    try {
+      dataUrl = localStorage.getItem(pdfStoreKey(kelas, semester, chapter, mid || (found && (found.id || found._mid)))) || '';
+      if (!dataUrl) dataUrl = localStorage.getItem(pdfStoreKey(kelas, semester, chapter)) || '';
+    } catch (e) {}
   }
   if (!dataUrl) { alert('File PDF tidak ditemukan di perangkat ini.'); return; }
   var a = document.createElement('a');
@@ -5627,6 +5653,7 @@ function downloadMaterialPdf(kelas, semester, chapter) {
 
 // Menyimpan kunci materi yang sedang diedit agar update tetap mengacu pada data asal.
 var materialEditKey = null;
+var editingMid = null; // id materi yang sedang diedit
 
 function resetMaterialForm() {
   var ids = ['matChapter', 'matTitle', 'matDesc', 'matVideo', 'matUrl',
@@ -5653,25 +5680,26 @@ function resetMaterialForm() {
   }
 
   materialEditKey = null;
+  editingMid = null;
   var saveBtn = document.getElementById('saveMaterialBtn');
   if (saveBtn) saveBtn.textContent = 'Simpan materi';
   var cancelBtn = document.getElementById('cancelMaterialEditBtn');
   if (cancelBtn) cancelBtn.classList.add('hidden');
 }
 
+function editMaterialByKey(a,b,c,mid){ return editMaterialById(mid); }
 function cancelEditMaterial() {
   resetMaterialForm();
   showToast('Edit dibatalkan', 'success');
 }
 
-function editMaterialByKey(kelas, semester, chapter) {
+function editMaterialById(mid) {
+  console.log('INTEGRASI editMaterialById', mid);
   var list = db.materials || [];
   var found = null;
   for (var i = 0; i < list.length; i++) {
     var m = list[i];
-    if (Number(m.kelas) === Number(kelas) &&
-        Number(m.semester) === Number(semester) &&
-        Number(m.chapter) === Number(chapter)) {
+    if (m && (String(m.id) === String(mid) || String(m._mid) === String(mid))) {
       found = m;
       break;
     }
@@ -5680,11 +5708,13 @@ function editMaterialByKey(kelas, semester, chapter) {
     showToast('Materi tidak ditemukan', 'error');
     return;
   }
-
+  editingMid = found._mid || found.id || mid;
   materialEditKey = {
     kelas: Number(found.kelas),
     semester: Number(found.semester),
-    chapter: Number(found.chapter)
+    chapter: Number(found.chapter),
+    _mid: editingMid,
+    id: editingMid
   };
 
   document.getElementById('matClass').value = String(found.kelas);
@@ -5732,14 +5762,15 @@ function editMaterialByKey(kelas, semester, chapter) {
   showToast('Mode Edit - silakan ubah lalu klik Update Materi', 'success');
 }
 
-function saveMaterial() {
+async function saveMaterial() {
+  console.log('INTEGRASI saveMaterial', { editingMid: editingMid });
   var item = {
     kelas: Number(document.getElementById('matClass').value),
     semester: Number(document.getElementById('matSemester').value),
     chapter: Number(document.getElementById('matChapter').value),
-    title: document.getElementById('matTitle').value.trim(),
-    desc: document.getElementById('matDesc').value.trim(),
-    url: document.getElementById('matUrl').value.trim(),
+    title: (document.getElementById('matTitle').value || '').trim(),
+    desc: (document.getElementById('matDesc').value || '').trim(),
+    url: (document.getElementById('matUrl').value || '').trim(),
     video: (document.getElementById('matVideo') && document.getElementById('matVideo').value.trim()) || '',
     image: (document.getElementById('matImageUrl') && document.getElementById('matImageUrl').value) || '',
     pdfData: (document.getElementById('matPdfData') && document.getElementById('matPdfData').value) || '',
@@ -5747,100 +5778,85 @@ function saveMaterial() {
   };
   if (!item.title || !item.chapter) { alert('Isi judul dan nomor bab'); return; }
 
-  var materials = db.materials || (db.materials = []);
-  var oldIndex = -1;
-  var targetIndex = -1;
-
-  // Cari data lama berdasarkan kunci saat mulai edit.
-  if (materialEditKey) {
-    for (var oi = 0; oi < materials.length; oi++) {
-      var oldItem = materials[oi];
-      if (Number(oldItem.kelas) === materialEditKey.kelas &&
-          Number(oldItem.semester) === materialEditKey.semester &&
-          Number(oldItem.chapter) === materialEditKey.chapter) {
-        oldIndex = oi;
-        break;
-      }
-    }
+  var mid = editingMid;
+  if (!mid) {
+    mid = 'm_' + Date.now() + '_' + Math.random().toString(36).slice(2, 9);
   }
+  item.id = mid;
+  item._mid = mid;
 
-  // Bila file baru tidak dipilih, gunakan file lama (PDF dan gambar).
-  var previous = oldIndex >= 0 ? materials[oldIndex] : null;
-  if (previous) {
-    if (!item.pdfData && previous.pdfData) item.pdfData = previous.pdfData;
-    if (!item.pdfName && previous.pdfName) item.pdfName = previous.pdfName;
-    if (!item.image && previous.image) item.image = previous.image;
-  }
-
-  if (item.pdfData) {
+  var sbClient = window.sb;
+  if (sbClient && navigator.onLine) {
     try {
-      localStorage.setItem(pdfStoreKey(item.kelas, item.semester, item.chapter), item.pdfData);
+      var clean = {};
+      for (var k in item) if (Object.prototype.hasOwnProperty.call(item, k) && k !== 'pdfData') clean[k] = item[k];
+      var row = {
+        id: mid,
+        kelas: item.kelas,
+        semester: item.semester,
+        chapter: item.chapter,
+        title: item.title || '',
+        pdfName: item.pdfName || '',
+        data: clean
+      };
+      var res = await sbClient.from('materials').upsert(row, { onConflict: 'id' });
+      if (res.error) {
+        console.warn('INTEGRASI saveMaterial supabase error', res.error);
+        showToast('Gagal simpan ke server: ' + (res.error.message || ''), 'error');
+        return;
+      }
+      console.log('INTEGRASI saveMaterial supabase OK', mid);
     } catch (e) {
-      alert('PDF terlalu besar untuk disimpan di perangkat ini. Perkecil file (di bawah 4MB) atau pakai link Drive.');
+      console.warn('INTEGRASI saveMaterial exception', e);
+      showToast('Gagal koneksi server', 'error');
       return;
     }
   }
 
-  // Cari materi dengan kunci tujuan untuk mencegah duplikat.
-  for (var ti = 0; ti < materials.length; ti++) {
-    var target = materials[ti];
-    if (Number(target.kelas) === item.kelas &&
-        Number(target.semester) === item.semester &&
-        Number(target.chapter) === item.chapter) {
-      targetIndex = ti;
-      break;
-    }
+  var materials = db.materials || (db.materials = []);
+  var idx = -1;
+  for (var i = 0; i < materials.length; i++) {
+    if (materials[i] && (materials[i].id === mid || materials[i]._mid === mid)) { idx = i; break; }
+  }
+  if (idx >= 0) materials[idx] = item;
+  else materials.push(item);
+  db.materials = materials;
+
+  if (item.pdfData) {
+    try { localStorage.setItem(pdfStoreKey(item.kelas, item.semester, item.chapter, mid), item.pdfData); } catch (e) {}
   }
 
-  if (oldIndex >= 0) {
-    // Jika kunci diubah, buang entri asal dan timpa entri tujuan bila sudah ada.
-    if (targetIndex >= 0 && targetIndex !== oldIndex) {
-      materials[targetIndex] = item;
-      materials.splice(oldIndex, 1);
-    } else {
-      materials[oldIndex] = item;
-    }
-  } else if (targetIndex >= 0) {
-    materials[targetIndex] = item;
-  } else {
-    materials.push(item);
-  }
-
-  try { saveDB(); }
-  catch (e) {
-    if (item.pdfData) {
-      item.pdfData = '';
-      var fallbackIndex = -1;
-      for (var fi = 0; fi < materials.length; fi++) {
-        if (Number(materials[fi].kelas) === item.kelas &&
-            Number(materials[fi].semester) === item.semester &&
-            Number(materials[fi].chapter) === item.chapter) {
-          fallbackIndex = fi;
-          break;
-        }
-      }
-      if (fallbackIndex >= 0) materials[fallbackIndex] = item;
-      try { saveDB(); } catch (e2) {}
-    }
-    alert('PDF disimpan di perangkat ini, tetapi terlalu besar untuk cadangan data. Siswa di HP lain tetap bisa memakai link Drive.');
-  }
-
-  var wasEditing = !!previous;
+  if (typeof saveDB === 'function') saveDB();
+  editingMid = null;
+  materialEditKey = null;
   resetMaterialForm();
-  renderMaterialAdmin();
-  showToast(wasEditing ? 'Materi diperbarui' : 'Materi disimpan', 'success');
+  if (typeof renderMaterialAdmin === 'function') renderMaterialAdmin();
+  if (typeof renderMaterials === 'function') renderMaterials();
+  showToast('Materi disimpan / diperbarui', 'success');
 }
 
-function deleteMaterialByKey(kelas, semester, chapter) {
+async function deleteMaterialById(mid) {
   if (!confirm('Hapus materi ini?')) return;
-  db.materials = (db.materials || []).filter(function(m){
-    return !(m.kelas === kelas && m.semester === semester && m.chapter === chapter);
+  console.log('INTEGRASI deleteMaterialById', mid);
+  var sbClient = window.sb;
+  if (sbClient && navigator.onLine && mid) {
+    try {
+      var res = await sbClient.from('materials').delete().eq('id', mid);
+      if (res.error) console.warn('delete material', res.error);
+    } catch (e) { console.warn(e); }
+  }
+  db.materials = (db.materials || []).filter(function(m) {
+    return !(m && (String(m.id) === String(mid) || String(m._mid) === String(mid)));
   });
-  try { localStorage.removeItem(pdfStoreKey(kelas, semester, chapter)); } catch (e) {}
-  saveDB();
-  renderMaterialAdmin();
+  try { localStorage.removeItem(pdfStoreKey(0,0,0,mid)); } catch (e) {}
+  if (typeof saveDB === 'function') saveDB();
+  if (typeof renderMaterialAdmin === 'function') renderMaterialAdmin();
+  if (typeof renderMaterials === 'function') renderMaterials();
   showToast('Materi dihapus', 'success');
 }
+function deleteMaterialByKey(a,b,c,mid){ return deleteMaterialById(mid); }
+
+
 
 function renderMaterialAdmin() {
   var el = document.getElementById('materialAdminList');
@@ -5860,12 +5876,20 @@ function renderMaterialAdmin() {
     if (m.url) html += '<p class="muted">PDF: <a href="' + esc(m.url) + '" target="_blank">' + esc(m.url) + '</a></p>';
     if (m.pdfName || m.pdfData) html += '<p class="muted">File PDF: ' + esc(m.pdfName || 'terunggah') + '</p>';
     html += '<div class="material-action-row">';
-    html += '<button type="button" class="material-edit-btn" onclick="editMaterialByKey(' + Number(m.kelas) + ',' + Number(m.semester) + ',' + Number(m.chapter) + ')">✏️ Edit</button>';
-    html += '<button type="button" class="material-delete-btn" onclick="deleteMaterialByKey(' + Number(m.kelas) + ',' + Number(m.semester) + ',' + Number(m.chapter) + ')">🗑️ Hapus</button>';
+    var mid = (m.id || m._mid || '').replace(/'/g, '');
+    html += '<button type="button" class="material-edit-btn" onclick="editMaterialById(\'' + mid + '\')">✏️ Edit</button>';
+    html += '<button type="button" class="material-delete-btn" onclick="deleteMaterialById(\'' + mid + '\')">🗑️ Hapus</button>';
     html += '</div>';
     html += '</div>';
   }
   el.innerHTML = html;
+}
+
+
+function renderMaterials() {
+  // Perbarui tampilan materi siswa & admin
+  try { if (typeof renderLessons === 'function') renderLessons(); } catch (e) {}
+  try { if (typeof renderMaterialAdmin === 'function') renderMaterialAdmin(); } catch (e) {}
 }
 
 function exportJournalsCSV() {
@@ -5893,6 +5917,45 @@ function exportAllJSON() {
   a.href = URL.createObjectURL(new Blob([JSON.stringify(db, null, 2)], { type: 'application/json' }));
   a.download = 'epai-offline-backup.json';
   a.click();
+}
+
+
+function hapusDataLokal() {
+  if (!confirm('Hapus cache lokal di HP ini saja?\nData di server tetap ada.')) return;
+  console.log('INTEGRASI hapusDataLokal');
+  try { localStorage.removeItem('epai_offline_v1'); } catch (e) {}
+  try { localStorage.removeItem(KEY); } catch (e) {}
+  db = { journals: [], assessments: [], materials: [], quizzes: [], quizAttempts: [], hotnews: [], students: [] };
+  if (typeof renderTeacherOverview === 'function') renderTeacherOverview();
+  if (typeof renderMaterialAdmin === 'function') renderMaterialAdmin();
+  showToast('Data lokal di HP ini dihapus. Data server tetap ada.', 'success');
+}
+
+async function resetTotal() {
+  console.log('INTEGRASI resetTotal mulai');
+  if (!confirm('RESET TOTAL akan menghapus semua data uji coba di SERVER + HP ini.\nMateri & Hot News TIDAK dihapus.\nLanjutkan?')) return;
+  var typed = prompt('Ketik HAPUS (huruf besar) untuk konfirmasi:');
+  if (typed !== 'HAPUS') { showToast('Dibatalkan', 'error'); return; }
+
+  var sbClient = window.sb;
+  if (sbClient && navigator.onLine) {
+    var tables = ['journals', 'assessments', 'quizAttempts', 'quizzes'];
+    for (var i = 0; i < tables.length; i++) {
+      try {
+        var t = tables[i];
+        console.log('INTEGRASI resetTotal delete', t);
+        var res = await sbClient.from(t).delete().neq('id', '00000000-0000-0000-0000-000000000000');
+        if (res.error) console.warn('reset delete error', t, res.error);
+      } catch (e) { console.warn(e); }
+    }
+  }
+  db = { journals: [], assessments: [], materials: db.materials || [], quizzes: [], quizAttempts: [], hotnews: db.hotnews || [], students: db.students || [] };
+  try { localStorage.clear(); } catch (e) {}
+  if (typeof saveDB === 'function') saveDB();
+  if (typeof renderTeacherOverview === 'function') renderTeacherOverview();
+  if (typeof renderAssessmentTable === 'function') renderAssessmentTable();
+  showToast('RESET BERHASIL', 'success');
+  setTimeout(function() { location.reload(); }, 800);
 }
 
 function clearAllData() {
@@ -6908,6 +6971,34 @@ function saveMarqueeText() {
   showToast('Running text disimpan & berjalan', 'success');
 }
 
+
+/* Cek hotnews id __marquee__ setiap 7 detik untuk update running text */
+setInterval(function() {
+  try {
+    if (typeof db === 'undefined' || !db || !db.hotnews) return;
+    var list = db.hotnews;
+    for (var i = 0; i < list.length; i++) {
+      if (list[i] && list[i].id === '__marquee__') {
+        var txt = (list[i].desc || list[i].title || '').trim();
+        if (!txt) break;
+        var el = document.getElementById('marqueeText');
+        var el2 = document.getElementById('marqueeText2');
+        if (el && el.textContent !== txt) {
+          el.innerHTML = txt;
+          if (el2) el2.innerHTML = txt;
+          var track = document.getElementById('marqueeTrack');
+          if (track) {
+            track.style.animation = 'none';
+            void track.offsetWidth;
+            track.style.animation = '';
+          }
+        }
+        break;
+      }
+    }
+  } catch (e) {}
+}, 7000);
+
 /* Import soal massal
    Format:
    pertanyaan
@@ -7098,8 +7189,6 @@ function openVideoModal(url, title) {
     } else {
       window.open(watch || url, '_blank');
     }
-    // Coba buka YouTube juga (Android sering langsung ke app)
-    try { window.open(watch || url, '_blank'); } catch (e) {}
     return;
   }
 
@@ -7923,7 +8012,9 @@ try { onLoginRoleChange(); } catch (e) {}
     return x && x.username && x.date ? String(x.username) + '|' + String(x.date) : '';
   }
   function materialKey(x) {
-    return x && x.kelas != null && x.semester != null && x.chapter != null
+    if (!x) return '';
+    if (x.id || x._mid) return String(x.id || x._mid);
+    return x.kelas != null && x.semester != null && x.chapter != null
       ? Number(x.kelas) + '|' + Number(x.semester) + '|' + Number(x.chapter) : '';
   }
   function assessmentKey(x) {
@@ -8003,7 +8094,7 @@ try { onLoginRoleChange(); } catch (e) {}
         var jk = journalKey(oldItem.username ? oldItem : oldRow);
         db.journals = (db.journals || []).filter(function (x) { return journalKey(x) !== jk; });
       } else if (table === 'materials') {
-        var mk = materialKey(oldItem.kelas != null ? oldItem : oldRow);
+        var mk = materialKey(oldItem.id || oldItem._mid ? oldItem : (oldItem.kelas != null ? oldItem : oldRow));
         db.materials = (db.materials || []).filter(function (x) { return materialKey(x) !== mk; });
       } else if (table === 'assessments') {
         var ak = assessmentKey(oldItem);
@@ -8066,13 +8157,19 @@ try { onLoginRoleChange(); } catch (e) {}
   }
   async function upsertMaterials() {
     var rows = (db.materials || []).map(function (m) {
+      var clean = {};
+      for (var k in m) if (Object.prototype.hasOwnProperty.call(m, k) && k !== 'pdfData') clean[k] = m[k];
+      var mid = m.id || m._mid || ('m_' + Date.now() + '_' + Math.random().toString(36).slice(2, 9));
       return {
+        id: mid,
         kelas: Number(m.kelas), semester: Number(m.semester),
-        chapter: Number(m.chapter), title: m.title, data: m
+        chapter: Number(m.chapter), title: m.title || '',
+        pdfName: m.pdfName || '',
+        data: clean
       };
-    }).filter(function (r) { return Number.isFinite(r.kelas) && Number.isFinite(r.semester) && Number.isFinite(r.chapter); });
+    }).filter(function (r) { return r.id && Number.isFinite(r.kelas) && Number.isFinite(r.semester) && Number.isFinite(r.chapter); });
     if (!rows.length) return;
-    var result = await sb.from('materials').upsert(rows, { onConflict: 'kelas,semester,chapter' });
+    var result = await sb.from('materials').upsert(rows, { onConflict: 'id' });
     if (result.error) reportError('upsert materials', result.error);
   }
   async function syncAssessments() {
@@ -8177,11 +8274,17 @@ try { onLoginRoleChange(); } catch (e) {}
   };
   window.pushMaterialFIX = async function (m) {
     if (!sb || !m) return;
+    var clean = {};
+    for (var k in m) if (Object.prototype.hasOwnProperty.call(m, k) && k !== 'pdfData') clean[k] = m[k];
+    var mid = m.id || m._mid || ('m_' + Date.now() + '_' + Math.random().toString(36).slice(2, 9));
     var row = {
+      id: mid,
       kelas: Number(m.kelas), semester: Number(m.semester),
-      chapter: Number(m.chapter), title: m.title, data: m
+      chapter: Number(m.chapter), title: m.title || '',
+      pdfName: m.pdfName || '',
+      data: clean
     };
-    var result = await sb.from('materials').upsert(row, { onConflict: 'kelas,semester,chapter' });
+    var result = await sb.from('materials').upsert(row, { onConflict: 'id' });
     if (result.error) reportError('pushMaterialFIX', result.error);
     else broadcastUpdate('pushMaterialFIX');
   };
@@ -8729,7 +8832,6 @@ setTimeout(function(){
 }, 1800);
 
 </script>
-<script src="supabase-sync.js"></script>
 
 </body>
 </html>
