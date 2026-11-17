@@ -8930,5 +8930,46 @@ function bersihDobek(){
 setInterval(bersihDobek, 2000);
 bersihDobek();
 </script>
+<script>
+// PATCH 4 - DEDUPE SISWA + ANTI KEDIP - 18 Nov
+bersihDobek = function(){
+  try{
+    Object.keys(localStorage).forEach(function(k){
+      if(/materi|material/i.test(k)){
+        try{
+          var a=JSON.parse(localStorage.getItem(k));
+          if(Array.isArray(a)){
+            var seen={}; var b=[];
+            a.forEach(function(it){
+              var key=((it.title||it.judul||it.nama||'')+'|'+(it.kelas||'')+'|'+(it.semester||'')+'|'+(it.bab||it.chapter||'')).toLowerCase().trim();
+              if(!seen[key]){ seen[key]=1; b.push(it); }
+            });
+            if(b.length!==a.length) localStorage.setItem(k, JSON.stringify(b));
+          }
+        }catch(e){}
+      }
+    });
+  }catch(e){}
+  // Cari kartu Siswa: yang ada tulisan "Bab 3" di dalamnya
+  var seen2={};
+  document.querySelectorAll('div').forEach(function(el){
+    var t=(el.innerText||'').trim();
+    // Ciri kartu siswa: pendek, mulai dari Bab, ada judulnya
+    if(t.indexOf('Bab ')==0 && t.length>10 && t.length<400){
+      var key=t.slice(0,150);
+      if(seen2[key]){ el.style.display='none'; }
+      else seen2[key]=1;
+    }
+    // Ciri kartu guru tetap jalan
+    if(t.indexOf('Kelas 7')>-1 && t.indexOf('Bab')>-1 && t.length<500 && t.length>20){
+      var key2=t.slice(0,120);
+      if(seen2[key2]){ el.style.display='none'; }
+      else seen2[key2]=1;
+    }
+  });
+};
+setInterval(bersihDobek, 5000);
+bersihDobek();
+</script>
 </body>
 </html>
