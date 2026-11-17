@@ -9064,6 +9064,38 @@ bersihDobek();
   setInterval(tambahTombol, 2000);
 })();
 </script>
+<script>
+// PATCH 9.1 - PINDAHIN TOMBOL CUMA BUAT GURU
+(function(){
+  function perbaiki(){
+    var b=document.getElementById('btnHapusSemua');
+    if(!b) return;
+    var txt=document.body.innerText||'';
+    // Kalau masih di halaman LOGIN, sembunyikan!
+    if(txt.indexOf('MASUK SEBAGAI')>-1 || txt.indexOf('NAMA SISWA')>-1){
+      b.style.display='none';
+      return;
+    }
+    // Kalau sudah di halaman Guru / ada Tambah Materi, baru munculin
+    if(txt.indexOf('Tambah Materi')>-1 || txt.indexOf('Kelola Materi')>-1 || txt.indexOf('Dashboard Guru')>-1 || txt.indexOf('Daftar Materi')>-1){
+      b.style.display='block';
+      // Pindahin ke bawah judul Guru biar rapi
+      var target=null;
+      document.querySelectorAll('h2,h3,h1').forEach(function(h){
+        if(h.innerText.indexOf('Materi')>-1) target=h;
+      });
+      if(target && b.parentElement!==target.parentElement){
+        target.parentElement.insertBefore(b, target.nextSibling);
+      }
+    } else {
+      // Di halaman lain, sembunyikan dulu
+      b.style.display='none';
+    }
+  }
+  setInterval(perbaiki, 1000);
+  console.log('PATCH 9.1 AKTIF');
+})();
+</script>
 
 </body>
 </html>
