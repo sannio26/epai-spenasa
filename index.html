@@ -9158,5 +9158,68 @@ bersihDobek();
   console.log('PATCH 10 AKTIF');
 })();
 </script>
+<script>
+// PATCH PRAKTIS SYNC - Setelah tabel praktis jadi
+(function(){
+  if(window._prakSync) return; window._prakSync=true;
+  function keServer(item){
+    if(!window.sb || !item) return;
+    try{
+      var row={id:item.id, title:item.title||'', kelas:String(item.kelas||''), desc:item.desc||'', video:item.video||'', pdf:item.pdf||'', image:item.image||'', createdAt:Date.now(), data:item};
+      window.sb.from('praktis').upsert(row, {onConflict:'id'}).then(function(res){ if(res.error) console.log('Praktis sync err', res.error.message); });
+    }catch(e){}
+  }
+  var _old=window.savePraktis;
+  if(_old){
+    window.savePraktis=function(){
+      var title=(document.getElementById('prakTitle').value||'').trim();
+      var oldId=document.getElementById('prakId').value||'';
+      var r=_old.apply(this, arguments);
+      try{
+        var list=db.praktis||[]; var item=null;
+        if(oldId){ for(var i=0;i<list.length;i++){ if(list[i].id===oldId){ item=list[i]; break; } } }
+        if(!item){ for(var j=list.length-1;j>=0;j--){ if(list[j].title===title){ item=list[j]; break; } } }
+        if(item) keServer(item);
+      }catch(e){}
+      return r;
+    };
+  }
+  var _oldDel=window.deletePraktis;
+  window.deletePraktis=function(id){
+    try{ if(window.sb) window.sb.from('praktis').delete().eq('id', id); }catch(e){}
+    if(_oldDel){
+      var c=window.confirm; window.confirm=function(){ return true; };
+      var r=_oldDel(id); window.confirm=c; return r;
+    }
+    db.praktis=(db.praktis||[]).filter(function(x){ return x.id!==id; });
+    saveDB();
+    if(typeof renderPraktisAdmin==='function') renderPraktisAdmin();
+  };
+  function tarik(){
+    try{
+      if(!window.sb) return;
+      window.sb.from('praktis').select('*').then(function(res){
+        if(res.error || !res.data) return;
+        if(!res.data.length){ (db.praktis||[]).forEach(function(p){ keServer(p); }); return; }
+        var map={};
+        (db.praktis||[]).forEach(function(p){ if(p && p.id) map[p.id]=p; });
+        res.data.forEach(function(row){
+          var it=row.data && typeof row.data==='object' ? row.data : {id:row.id, title:row.title, kelas:row.kelas, desc:row.desc, video:row.video, pdf:row.pdf, image:row.image};
+          if(it && it.id) map[it.id]=it;
+        });
+        var baru=Object.keys(map).map(function(k){ return map[k]; });
+        if(JSON.stringify(baru)!==JSON.stringify(db.praktis||[])){
+          db.praktis=baru; saveDB();
+          if(typeof renderPraktisAdmin==='function') renderPraktisAdmin();
+          if(typeof renderStudentPraktis==='function') renderStudentPraktis();
+        }
+      });
+    }catch(e){}
+  }
+  setTimeout(tarik, 2000);
+  setInterval(tarik, 7000);
+  console.log('PATCH PRAKTIS SYNC AKTIF');
+})();
+</script>
 </body>
 </html>
