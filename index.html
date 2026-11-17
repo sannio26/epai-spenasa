@@ -8896,5 +8896,39 @@ window.downloadMaterialPdf = function(kelas, semester, chapter, mid){
   }catch(e){ alert('PDF belum tersedia di perangkat ini.'); }
 };
 </script>
+<script>
+// PATCH 3 - DEDUPE + HAPUS TUNTAS - 18 Nov
+function bersihDobek(){
+  try{
+    Object.keys(localStorage).forEach(function(k){
+      if(/materi|material/i.test(k)){
+        try{
+          var a=JSON.parse(localStorage.getItem(k));
+          if(Array.isArray(a)){
+            var seen={}; var b=[];
+            a.forEach(function(it){
+              var key=((it.title||it.judul||it.nama||'')+'|'+(it.kelas||'')+'|'+(it.semester||'')+'|'+(it.bab||it.chapter||'')).toLowerCase().trim();
+              if(!seen[key]){ seen[key]=1; b.push(it); }
+            });
+            if(b.length!==a.length) localStorage.setItem(k, JSON.stringify(b));
+          }
+        }catch(e){}
+      }
+    });
+  }catch(e){}
+  // Bersihin tampilan dobel
+  var seen2={};
+  document.querySelectorAll('div').forEach(function(el){
+    var t=el.innerText||'';
+    if(t.indexOf('Kelas 7')>-1 && t.indexOf('Bab')>-1 && t.length<500){
+      var key=t.trim().slice(0,120);
+      if(seen2[key]){ el.style.display='none'; }
+      else seen2[key]=1;
+    }
+  });
+}
+setInterval(bersihDobek, 2000);
+bersihDobek();
+</script>
 </body>
 </html>
