@@ -9034,5 +9034,36 @@ bersihDobek();
   console.log('PATCH 6 AKTIF');
 })();
 </script>
+<script>
+// PATCH 9 - HAPUS SEMUA
+(function(){
+  function tambahTombol(){
+    if(document.getElementById('btnHapusSemua')) return;
+    var judul = document.querySelector('h2,h3');
+    if(!judul) return;
+    var b=document.createElement('button');
+    b.id='btnHapusSemua';
+    b.textContent='🗑️ Hapus SEMUA Materi (Mulai Dari Nol)';
+    b.style.cssText='background:#c0392b;color:#fff;padding:12px 16px;border:none;border-radius:12px;font-weight:bold;width:100%;margin:10px 0;';
+    b.onclick=function(){
+      if(!confirm('YAKIN hapus SEMUA materi bawaan?')) return;
+      if(!confirm('YAKIN BANGET? Gak bisa dibatalin!')) return;
+      try{
+        var keys=[];
+        for(var i=0;i<localStorage.length;i++){ keys.push(localStorage.key(i)); }
+        keys.forEach(function(k){
+          if(k.toLowerCase().indexOf('materi')>-1 || k.toLowerCase().indexOf('epai')>-1 || k.toLowerCase().indexOf('pai')>-1) localStorage.removeItem(k);
+        });
+        localStorage.setItem('epai_materi_list','[]');
+      }catch(e){}
+      alert('BERES! Sudah dihapus semua!');
+      location.reload();
+    };
+    judul.parentElement.insertBefore(b, judul.nextSibling);
+  }
+  setInterval(tambahTombol, 2000);
+})();
+</script>
+
 </body>
 </html>
