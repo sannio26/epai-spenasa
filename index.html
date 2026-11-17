@@ -9235,5 +9235,41 @@ bersihDobek();
   },1500);
 })();
 </script>
+<script>
+// FIX MATERI - Edit/Hapus pakai Bab
+(function(){
+function cari(mid,k,s,c){
+var L=(window.db&&window.db.materials)||[];
+for(var i=0;i<L.length;i++){if(mid&&String(L[i].id)===String(mid))return L[i];}
+for(var j=0;j<L.length;j++){if(Number(L[j].kelas)===Number(k)&&Number(L[j].semester)===Number(s)&&Number(L[j].chapter)===Number(c))return L[j];}
+return null;}
+window.editMaterialById=function(mid,k,s,c){
+var f=cari(mid,k,s,c);if(!f){alert('Materi tidak ditemukan');return;}
+if(!f.id){f.id='m_'+f.kelas+'_'+f.semester+'_'+f.chapter;f._mid=f.id;}
+window.editingMid=f.id;
+document.getElementById('matClass').value=f.kelas;
+document.getElementById('matSemester').value=f.semester;
+document.getElementById('matChapter').value=f.chapter;
+document.getElementById('matTitle').value=f.title||'';
+document.getElementById('matDesc').value=f.desc||'';
+document.getElementById('matVideo').value=f.video||'';
+document.getElementById('matUrl').value=f.url||'';
+document.getElementById('saveMaterialBtn').textContent='Update Materi';
+document.getElementById('cancelMaterialEditBtn').classList.remove('hidden');
+alert('Mode Edit - ubah lalu klik Update');};
+window.deleteMaterialById=async function(mid,k,s,c){
+if(!confirm('Hapus materi ini?'))return;
+var f=cari(mid,k,s,c);if(!f){alert('Materi tidak ditemukan');return;}
+try{if(window.sb){if(f.id)await window.sb.from('materials').delete().eq('id',f.id);}}catch(e){}
+window.db.materials=window.db.materials.filter(function(m){return m!==f;});
+saveDB();renderMaterialAdmin();alert('Materi dihapus');};
+var _old=window.renderMaterialAdmin;
+window.renderMaterialAdmin=function(){
+_old();
+var L=(window.db.materials||[]).slice().sort(function(a,b){return a.kelas-b.kelas||a.semester-b.semester||a.chapter-b.chapter;});
+var btns=document.querySelectorAll('#materialAdminList button');
+btns.forEach(function(b,idx){var m=L[Math.floor(idx/2)];if(!m)return;var mid=m.id||'';if(b.className.indexOf('edit')>-1)b.setAttribute('onclick',"editMaterialById('"+mid+"',"+m.kelas+","+m.semester+","+m.chapter+")");else b.setAttribute('onclick',"deleteMaterialById('"+mid+"',"+m.kelas+","+m.semester+","+m.chapter+")");});};
+})();
+</script>
 </body>
 </html>
