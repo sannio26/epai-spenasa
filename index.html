@@ -9096,6 +9096,26 @@ bersihDobek();
   console.log('PATCH 9.1 AKTIF');
 })();
 </script>
+<script>
+// PATCH 9.2 - MUNCULIN TOMBOL DI GURU
+(function(){
+  function perbaiki2(){
+    var b=document.getElementById('btnHapusSemua');
+    if(!b) return;
+    var txt=document.body.innerText||'';
+    if(txt.indexOf('MASUK SEBAGAI')>-1){ b.style.display='none'; return; }
+    if(txt.indexOf('Simpan materi')>-1 || txt.indexOf('Edit')>-1){
+      b.style.display='block';
+      var simpan=null;
+      document.querySelectorAll('button').forEach(function(btn){
+        if(btn.innerText.indexOf('Simpan materi')>-1) simpan=btn;
+      });
+      if(simpan && simpan.parentElement) simpan.parentElement.insertBefore(b, simpan);
+    } else { b.style.display='none'; }
+  }
+  setInterval(perbaiki2, 1000);
+})();
+</script>
 
 </body>
 </html>
