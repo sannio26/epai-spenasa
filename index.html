@@ -9116,6 +9116,47 @@ bersihDobek();
   setInterval(perbaiki2, 1000);
 })();
 </script>
-
+<script>
+// PATCH 10 - HAPUS SEMUA BENERAN VIA TOMBOL HAPUS ASLI
+(function(){
+  function gantiTombol(){
+    var b=document.getElementById('btnHapusSemua');
+    if(!b) return;
+    // Ganti fungsi tombolnya, jangan yang lama lagi
+    b.onclick=function(){
+      if(!confirm('YAKIN hapus SEMUA materi dari Internet? Ini beneran kehapus!')) return;
+      b.textContent='⏳ Lagi menghapus... jangan ditutup!';
+      b.disabled=true;
+      var dihapus=0;
+      // Biar confirm Hapus otomatis ke-OK
+      var confirmAsli=window.confirm;
+      window.confirm=function(){ return true; };
+      function hapusSatu(){
+        // Cari tombol Hapus yang pertama (yang kecil, bukan yang besar)
+        var target=null;
+        document.querySelectorAll('button').forEach(function(btn){
+          if(!target && btn.id!=='btnHapusSemua' && btn.innerText.indexOf('Hapus')>-1 && btn.offsetParent!==null){
+            target=btn;
+          }
+        });
+        if(!target){
+          window.confirm=confirmAsli;
+          alert('BERES! Sudah kehapus '+dihapus+' materi dari Internet!');
+          location.reload();
+          return;
+        }
+        dihapus++;
+        b.textContent='⏳ Menghapus ke-'+dihapus+'...';
+        target.click();
+        // Tunggu 1 detik, lanjut ke berikutnya
+        setTimeout(hapusSatu, 1000);
+      }
+      hapusSatu();
+    };
+  }
+  setInterval(gantiTombol, 2000);
+  console.log('PATCH 10 AKTIF');
+})();
+</script>
 </body>
 </html>
