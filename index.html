@@ -4336,7 +4336,7 @@ function loadDB() {
     if (raw && typeof raw === 'object') {
       raw.journals = raw.journals || [];
       raw.assessments = raw.assessments || [];
-      raw.materials = (raw.materials && raw.materials.length) ? raw.materials : DEFAULT_MATERIALS.slice();
+      raw.materials = raw.materials || [];
       if (!raw.praktis || !raw.praktis.length) raw.praktis = DEFAULT_PRAKTIS.slice();
       if (!raw.studentPasswords) raw.studentPasswords = {};
       if (!raw.teacherPassword) raw.teacherPassword = '9090';
@@ -4345,7 +4345,7 @@ function loadDB() {
       return raw;
     }
   } catch (e) {}
-  return { journals: [], assessments: [], materials: DEFAULT_MATERIALS.slice(), praktis: DEFAULT_PRAKTIS.slice(), quizzes: [], quizAttempts: [], studentPasswords: {}, teacherPassword: '9090' };
+  return { journals: [], assessments: [], materials: [], praktis: DEFAULT_PRAKTIS.slice(), quizzes: [], quizAttempts: [], studentPasswords: {}, teacherPassword: '9090' };
 }
 function saveDB() { localStorage.setItem(KEY, JSON.stringify(db)); }
 var db = loadDB();
@@ -5960,7 +5960,7 @@ async function resetTotal() {
 
 function clearAllData() {
   if (!confirm('Hapus SEMUA jurnal, nilai, dan materi kustom di perangkat ini?')) return;
-  db = { journals: [], assessments: [], materials: DEFAULT_MATERIALS.slice(), quizzes: [], quizAttempts: [] };
+  db = { journals: [], assessments: [], materials: [], quizzes: [], quizAttempts: [] };
   saveDB();
   initTeacher();
   showToast(' dihapus', 'success');
@@ -9219,6 +9219,14 @@ bersihDobek();
   setTimeout(tarik, 2000);
   setInterval(tarik, 7000);
   console.log('PATCH PRAKTIS SYNC AKTIF');
+})();
+</script>
+<script>
+(function(){
+  setTimeout(function(){
+    var old=document.getElementById('btnHapusSemua');
+    if(old){ old.style.display='none'; old.disabled=true; }
+  },1500);
 })();
 </script>
 </body>
