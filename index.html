@@ -9271,5 +9271,44 @@ var btns=document.querySelectorAll('#materialAdminList button');
 btns.forEach(function(b,idx){var m=L[Math.floor(idx/2)];if(!m)return;var mid=m.id||'';if(b.className.indexOf('edit')>-1)b.setAttribute('onclick',"editMaterialById('"+mid+"',"+m.kelas+","+m.semester+","+m.chapter+")");else b.setAttribute('onclick',"deleteMaterialById('"+mid+"',"+m.kelas+","+m.semester+","+m.chapter+")");});};
 })();
 </script>
+<script>
+// AUTO UBAH youtu.be -> youtube.com/watch?v=
+(function(){
+function toWatch(u){
+if(!u) return u;
+u=String(u).trim();
+var m=u.match(/(?:youtu\.be\/|youtube\.com\/(?:watch\?v=|embed\/|shorts\/|v\/))([A-Za-z0-9_-]{11})/);
+if(m) return 'https://www.youtube.com/watch?v='+m[1];
+return u;
+}
+async function jalan(){
+await new Promise(function(r){setTimeout(r,2500);});
+var list=(window.db&&window.db.materials)||[];
+var kena=0;
+for(var i=0;i<list.length;i++){
+var m=list[i]; if(!m||!m.video) continue;
+var baru=toWatch(m.video);
+if(baru!==m.video){ m.video=baru; kena++;
+try{ if(window.sb&&m.id) await window.sb.from('materials').update({video:baru}).eq('id',m.id);}catch(e){}
+}
+}
+// biar kalau nanti paste link pendek lagi, otomatis keubah pas save
+var asli=window.saveMaterial;
+if(asli && !window.saveMaterial._watchFixed){
+var fn=function(){
+var inp=document.getElementById('mVideo')||document.querySelector('input[name="video"]');
+if(inp && inp.value) inp.value=toWatch(inp.value);
+return asli.apply(this, arguments);
+}; fn._watchFixed=true; window.saveMaterial=fn;
+}
+if(kena>0){
+if(typeof saveDB==='function') saveDB();
+alert('BERES! '+kena+' link udah diubah jadi format watch!');
+}
+}
+if(document.readyState==='loading') document.addEventListener('DOMContentLoaded', jalan);
+else setTimeout(jalan,1500);
+})();
+</script>
 </body>
 </html>
