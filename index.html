@@ -8961,7 +8961,7 @@ bersihDobek = function(){
       else seen2[key]=1;
     }
     // Ciri kartu guru tetap jalan
-    if(t.indexOf('Kelas 7')>-1 && t.indexOf('Bab')>-1 && t.length<500 && t.length>20){
+    if(t.indexOf('Kelas')>-1 && t.indexOf('Bab')>-1 && t.length<500 && t.length>20){
       var key2=t.slice(0,120);
       if(seen2[key2]){ el.style.display='none'; }
       else seen2[key2]=1;
@@ -8970,6 +8970,69 @@ bersihDobek = function(){
 };
 setInterval(bersihDobek, 5000);
 bersihDobek();
+</script>
+<script>
+// PATCH 6 - BENERIN EDIT/HAPUS BIAR KETEMU MATERI LAMA - 18 Nov
+(function(){
+  // Simpan fungsi lama
+  var _oldEdit = window.editMaterialById;
+  // Timpa dengan yang baru, yang nyarinya pakai SEMUA kunci
+  window.editMaterialById = function(mid){
+    try{
+      var list = (window.db && window.db.materials) || [];
+      var found = null;
+      // 1. Coba cara lama dulu
+      for(var i=0;i<list.length;i++){
+        var m=list[i];
+        if(m && (String(m.id)===String(mid) || String(m._id)===String(mid) || String(m._key)===String(mid) || String(m.key)===String(mid) || String(m._Key)===String(mid))){
+          found=m; break;
+        }
+      }
+      // 2. Kalau gak ketemu, coba mid itu NOMOR URUT / INDEX
+      if(!found){
+        var idx = parseInt(mid,10);
+        if(!isNaN(idx) && list[idx]) found=list[idx];
+      }
+      // 3. Kalau masih gak ketemu, coba mid itu JUDUL / BAB
+      if(!found){
+        for(var j=0;j<list.length;j++){
+          var m2=list[j];
+          var kunci=((m2.title||m2.judul||m2.nama||'')+'|'+(m2.kelas||'')+'|'+(m2.bab||'')).toLowerCase();
+          if(String(mid).toLowerCase() && kunci.indexOf(String(mid).toLowerCase().slice(0,20))>-1){ found=m2; break; }
+        }
+      }
+      // 4. Kalau ketemu pakai cara baru, SAMAIN id-nya biar fungsi lama mau jalan!
+      if(found){
+        found.id = mid;
+        if(found._key) found._key = mid;
+        window.materialEditKey = found._key || found.key || mid;
+        window.editingMid = mid;
+        console.log('PATCH 6: ketemu!', found);
+      }
+    }catch(e){ console.log('PATCH 6 err', e); }
+    // Panggil fungsi lama, sekarang pasti ketemu!
+    return _oldEdit ? _oldEdit(mid) : null;
+  };
+
+  // Benerin HAPUS juga dengan cara yang sama
+  var _oldDel = window.hapusMaterial || window.deleteMaterial || window.hapusMateri;
+  if(_oldDel){
+    var fnName = window.hapusMaterial ? 'hapusMaterial' : (window.deleteMaterial ? 'deleteMaterial' : 'hapusMateri');
+    window[fnName] = function(mid){
+      try{
+        var list2 = (window.db && window.db.materials) || [];
+        var f2=null;
+        for(var k=0;k<list2.length;k++){
+          var mm=list2[k];
+          if(mm && (String(mm.id)===String(mid) || String(mm._id)===String(mid) || String(mm._key)===String(mid) || String(mm.key)===String(mid))) { f2=mm; break; }
+        }
+        if(f2){ f2.id = mid; }
+      }catch(e){}
+      return _oldDel(mid);
+    };
+  }
+  console.log('PATCH 6 AKTIF');
+})();
 </script>
 </body>
 </html>
