@@ -9310,67 +9310,6 @@ if(document.readyState==='loading') document.addEventListener('DOMContentLoaded'
 else setTimeout(jalan,1500);
 })();
 </script>
-<script>
-// HAPUS DOBEL BUAT SEMUA BAB - bukan Bab 3 aja
-(function(){
-async function jalan(){
-await new Promise(function(r){setTimeout(r,3000);});
-var list=(window.db&&window.db.materials)||[];
-if(!list.length) return;
 
-// Kelompokkan per judul yang sama
-var grup={};
-for(var i=0;i<list.length;i++){
-var m=list[i]; if(!m) continue;
-var kunci=(m.title||'').trim().toLowerCase();
-if(!grup[kunci]) grup[kunci]=[];
-grup[kunci].push(m);
-}
-var mauHapus=[];
-for(var k in grup){
-var arr=grup[k];
-if(arr.length<=1) continue;
-// Kalau dobel, simpan yang paling lengkap (yang ada Video + PDF)
-// Yang kosong / gak ada video, yang dihapus
-arr.sort(function(a,b){
-var skorA=((a.video)?1:0)+((a.pdf||a.file)?1:0)+((a.image||a.gambar)?1:0);
-var skorB=((b.video)?1:0)+((b.pdf||b.file)?1:0)+((b.image||b.gambar)?1:0);
-return skorB-skorA;
-});
-// Yang pertama dipertahankan, sisanya dihapus
-for(var j=1;j<arr.length;j++) mauHapus.push(arr[j]);
-}
-if(!mauHapus.length){ console.log('Aman, gak ada yang dobel'); return; }
-if(!confirm('Ketemu '+mauHapus.length+' materi dobel di semua Bab. Hapus yang dobelnya? Yang lengkap dipertahankan!')) return;
-for(var t=0;t<mauHapus.length;t++){
-try{ if(window.sb&&mauHapus[t].id) await window.sb.from('materials').delete().eq('id', mauHapus[t].id); }catch(e){}
-}
-if(window.db) window.db.materials=list.filter(function(x){ return mauHapus.indexOf(x)===-1; });
-if(typeof saveDB==='function') saveDB();
-if(typeof renderMaterialAdmin==='function') renderMaterialAdmin();
-if(typeof renderMaterials==='function') renderMaterials();
-alert('BERES! '+mauHapus.length+' materi dobel di semua Bab udah kehapus!');
-}
-if(document.readyState==='loading') document.addEventListener('DOMContentLoaded', jalan);
-else setTimeout(jalan,1500);
-})();
-</script>
-<script>
-// WIPE TOTAL - HAPUS BAB 1-5 DARI INTERNET
-(function(){
-async function wipe(){
-await new Promise(function(r){setTimeout(r,3000);});
-if(!confirm('HAPUS SEMUA MATERI DARI INTERNET? Bab 1-5 ikut kehapus!')) return;
-try{ if(window.sb) await window.sb.from('materials').delete().neq('kelas', -999); }catch(e){}
-try{ if(window.sb) await window.sb.from('materials').delete().not('id','is',null); }catch(e){}
-if(window.db) window.db.materials=[];
-try{ localStorage.removeItem('epai_offline_v1'); }catch(e){}
-try{ if(typeof saveDB==='function') saveDB(); }catch(e){}
-alert('BERES! MATERI UDAH 0!');
-}
-if(document.readyState==='loading') document.addEventListener('DOMContentLoaded', wipe);
-else setTimeout(wipe,1500);
-})();
-</script>
 </body>
 </html>
