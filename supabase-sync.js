@@ -1,7 +1,22 @@
 /* E-PAIBP All-in-One Realtime Sync & YouTube Fix */
 (function () {
   'use strict';
-
+  function openVideoModal(rawUrl, title) {
+    var url = (rawUrl || '').trim();
+    if (!url) return;
+    var m = url.match(/(?:youtu\.be\/|youtube\.com\/(?:watch\?v=|embed\/|shorts\/|v\/))([A-Za-z0-9_-]{11})/);
+    if (m) url = 'https://www.youtube.com/embed/' + m[1];
+    var old = document.getElementById('epaiVideoModal');
+    if (old) old.remove();
+    var div = document.createElement('div');
+    div.id = 'epaiVideoModal';
+    div.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.85);z-index:9999;display:flex;align-items:center;justify-content:center;padding:12px;';
+    div.innerHTML = '<div style="background:#fff;width:100%;max-width:720px;border-radius:12px;overflow:hidden;"><div style="display:flex;justify-content:space-between;align-items:center;padding:10px 14px;font-weight:700;">' + (title || 'Video pembelajaran') + '<button id="epaiCloseVideo" style="font-size:22px;border:none;background:none;">×</button></div><div style="aspect-ratio:16/9;background:#000;"><iframe src="' + url + '" style="width:100%;height:100%;border:0;" allowfullscreen></iframe></div></div>';
+    div.addEventListener('click', function(e){ if(e.target===div) div.remove(); });
+    div.querySelector('#epaiCloseVideo').onclick = function(){ div.remove(); };
+    document.body.appendChild(div);
+  }
+  window.openVideoModal = openVideoModal;
   // 1. Aktifkan semua tombol Video YouTube di menu Materi, Ibadah Praktis & Hot News
   document.addEventListener('click', function (ev) {
     var vidBtn = ev.target.closest('[data-video]');
@@ -135,7 +150,7 @@
         if (item) {
           sb.from('hotnews').upsert({
             id: item.id, title: item.title, kelas: item.kelas || '',
-            desc: item.desc || '', video: item.video || '', pdf: item.pdf || '',
+            description: item.description || item.desc || '',, video: item.video || '', pdf: item.pdf || '',
             image: item.image || '', data: item
           }, { onConflict: 'id' }).then(function (res) {
             if (res.error) {
@@ -175,7 +190,19 @@
         });
       };
     }
-
+  function loadMarqueeFromCloud() {
+        if (typeof sb === 'undefined') return;
+    sb.from('app_settings').select('value').eq('key', 'marquee_text').single().then(function(res) {
+      if (res.data && res.data.value) {
+        localStorage.setItem('epai_marquee_text', res.data.value);
+        var el = document.getElementById('marqueeText') || document.querySelector('.marquee-text');
+        if (el) el.textContent = res.data.value;
+      }
+    });
+  }
+  window.loadMarqueeFromCloud = loadMarqueeFromCloud;
+  setTimeout(loadMarqueeFromCloud, 800);
+  setInterval(loadMarqueeFromCloud, 15000);
     // 6. Sinkronisasi Hapus Paket Soal
     if (typeof window.deleteQuizPackage === 'function' && !window._epaiDelQuizHooked) {
       window._epaiDelQuizHooked = true;
