@@ -9607,5 +9607,64 @@ else setTimeout(jalan,1500);
   console.log('FIX 4 TOMBSTONE AKTIF');
 })();
 </script>
+<script>
+// FIX 6 - TOMBOL SAPU DOBEL SEKALI KLIK
+(function(){
+  setTimeout(function(){
+    if(document.getElementById('btnSapuDob')) return;
+    var btn = document.createElement('button');
+    btn.id = 'btnSapuDob';
+    btn.textContent = '🧹 SAPU DOBEL - Klik 1x Aja';
+    btn.style.cssText = 'background:#dc2626;color:#fff;padding:12px 18px;border-radius:12px;font-weight:700;margin:10px 0;width:100%;border:none;';
+    btn.onclick = async function(){
+      if(!confirm('Sapu semua materi DOBEL? Yang disisain cuma 1 per Bab, yang paling lengkap (ada Video/PDF). Lanjut?')) return;
+      var L = window.db.materials || [];
+      var perBab = {};
+      L.forEach(function(m){
+        if(m.title==='__DELETED__') return;
+        var k = m.kelas+'|'+m.semester+'|'+m.chapter;
+        if(!perBab[k]) perBab[k]=[];
+        perBab[k].push(m);
+      });
+      var bersih = [];
+      var dibuang = 0;
+      Object.keys(perBab).forEach(function(k){
+        var arr = perBab[k];
+        arr.sort(function(a,b){
+          var sa = ((a.video||'').length + (a.url||'').length + (a.image||'').length);
+          var sb = ((b.video||'').length + (b.url||'').length + (b.image||'').length);
+          return sb - sa;
+        });
+        bersih.push(arr[0]);
+        dibuang += (arr.length - 1);
+      });
+      bersih.sort(function(a,b){
+        if(a.kelas!=b.kelas) return a.kelas-b.kelas;
+        if(a.semester!=b.semester) return a.semester-b.semester;
+        return a.chapter-b.chapter;
+      });
+      window.db.materials = bersih;
+      try{ if(typeof saveDB==='function') saveDB(); }catch(e){}
+      try{
+        var sb = window.sb || window.supabaseClient;
+        if(sb){
+          await sb.from('materials').delete().neq('title','__DELETED__');
+          await new Promise(function(r){ setTimeout(r,500); });
+          var up = bersih.map(function(m){
+            return {kelas:Number(m.kelas), semester:Number(m.semester), chapter:Number(m.chapter), title:m.title||'', desc:m.desc||'', video:m.video||'', url:m.url||''};
+          });
+          if(up.length) await sb.from('materials').upsert(up, {onConflict:'kelas,semester,chapter'});
+        }
+      }catch(e){ console.log('sapu server',e); }
+      try{ if(typeof renderMaterialAdmin==='function') renderMaterialAdmin(); }catch(e){}
+      try{ if(typeof renderLessons==='function') renderLessons(); }catch(e){}
+      alert('BERES! Dibuang '+dibuang+' materi dobel. Tinggal '+bersih.length+' materi bersih. Cek HP Murid 10 detik lagi.');
+    };
+    var simpan = document.getElementById('saveMaterialBtn');
+    if(simpan && simpan.parentNode) simpan.parentNode.insertBefore(btn, simpan);
+    else document.body.prepend(btn);
+  }, 1000);
+})();
+</script>
 </body>
 </html>
