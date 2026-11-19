@@ -9529,5 +9529,83 @@ else setTimeout(jalan,1500);
   console.log('FIX 3 MATERI DEFAULT MATI - AKTIF');
 })();
 </script>
+<script>
+// FIX 4 - HAPUS MATERI SYNC SEMUA HP PAKE TOMBSTONE
+(function(){
+  function getSB(){ return window.sb || window.supabaseClient || window.supabase || null; }
+  function keyOf(m){ return 'K'+m.kelas+'-S'+m.semester+'-B'+m.chapter; }
+
+  // 1. Cek batu nisan di server, terus hapus yang udah ditandai
+  async function cekNisan(){
+    var sb = getSB(); if(!sb) return;
+    try{
+      var r = await sb.from('materials').select('*').eq('title','__DELETED__');
+      if(r.error || !r.data) return;
+      var nisan = r.data.map(function(x){ return keyOf(x); });
+      if(!nisan.length) return;
+      if(!window.db || !window.db.materials) return;
+      var awal = window.db.materials.length;
+      window.db.materials = window.db.materials.filter(function(m){
+        // jangan hapus nisannya sendiri, hapus materi aslinya
+        if(m.title==='__DELETED__') return true;
+        return nisan.indexOf(keyOf(m))<0;
+      });
+      // Bersihin dobel Bab yang sama - sisain 1 aja
+      var seen={}; window.db.materials = window.db.materials.filter(function(m){
+        var k=keyOf(m)+'|'+m.title;
+        if(seen[k]) return false; seen[k]=true; return true;
+      });
+      if(window.db.materials.length!==awal){
+        try{ if(typeof saveDB==='function') saveDB(); }catch(e){}
+        try{ if(typeof renderMaterialAdmin==='function') renderMaterialAdmin(); }catch(e){}
+        try{ if(typeof renderLessons==='function') renderLessons(); }catch(e){}
+      }
+    }catch(e){}
+  }
+  setInterval(cekNisan, 3000);
+  setTimeout(cekNisan, 2000);
+
+  // 2. Timpa Hapus - kirim nisan ke server dulu!
+  async function hapusSync(mid,k,s,c){
+    var L=(window.db&&window.db.materials)||[];
+    var f=null;
+    for(var i=0;i<L.length;i++){ if(mid && String(L[i].id||'')===String(mid)) f=L[i]; }
+    if(!f) for(var j=0;j<L.length;j++){ if(Number(L[j].kelas)===Number(k)&&Number(L[j].semester)===Number(s)&&Number(L[j].chapter)===Number(c)) f=L[j]; }
+    if(!f){ alert('Materi tidak ditemukan'); return; }
+    if(!confirm('Hapus Bab '+f.chapter+' ini? Bakal ilang di SEMUA HP.')) return;
+
+    var sb=getSB();
+    // Kirim nisan ke server - ini kuncinya!
+    try{
+      if(sb){
+        await sb.from('materials').upsert({
+          kelas: Number(f.kelas), semester: Number(f.semester), chapter: Number(f.chapter),
+          title: '__DELETED__', desc: 'deleted', video:'', url:''
+        }, {onConflict:'kelas,semester,chapter'});
+        // Coba hapus yang asli juga kalau ada di server
+        await sb.from('materials').delete().eq('kelas', Number(f.kelas)).eq('semester', Number(f.semester)).eq('chapter', Number(f.chapter)).neq('title','__DELETED__');
+        if(f.id) await sb.from('materials').delete().eq('id', f.id).neq('title','__DELETED__');
+      }
+    }catch(e){ console.log('nisan gagal',e); }
+
+    // Hapus di HP sendiri
+    window.db.materials = window.db.materials.filter(function(m){ return m!==f && !(m.title==='__DELETED__' && keyOf(m)===keyOf(f)); });
+    // Hapus juga yang dobel dengan kunci sama
+    window.db.materials = window.db.materials.filter(function(m){ return !(keyOf(m)===keyOf(f) && m.title!=='__DELETED__'); });
+    try{ if(typeof saveDB==='function') saveDB(); }catch(e){}
+    try{ if(typeof renderMaterialAdmin==='function') renderMaterialAdmin(); }catch(e){}
+    try{ if(typeof renderLessons==='function') renderLessons(); }catch(e){}
+    alert('BERES! Nisan terkirim. Tunggu 5 detik, HP Murid bakal ikut kehapus.');
+  }
+
+  // Timpa SEMUA nama hapus
+  window.deleteMaterialById = hapusSync;
+  window.deleteMaterial = hapusSync;
+  window.hapusMateri = hapusSync;
+  window.removeMaterial = hapusSync;
+  window.delMaterial = hapusSync;
+  console.log('FIX 4 TOMBSTONE AKTIF');
+})();
+</script>
 </body>
 </html>
