@@ -9621,5 +9621,30 @@ else setTimeout(jalan,1500);
   console.log('V2 SURGICAL AKTIF - cuma #materials + #learning');
 })();
 </script>
+<script>
+// FIX HITUNG PDF - biar materi lama ga kebaca 0
+setTimeout(function(){
+  var _old = window.renderMaterialAdmin;
+  window.renderMaterialAdmin = function(){
+    var el = document.getElementById('materialAdminList'); if(!el) return;
+    _old();
+    // Benerin tulisan PDF: 0 jadi angka beneran
+    el.querySelectorAll('.material').forEach(function(card, idx){
+      var items = (window.db.materials||[]).slice().sort(function(a,b){ return a.kelas-b.kelas||a.semester-b.semester||a.chapter-b.chapter; });
+      var m = items[idx]; if(!m) return;
+      var jml = 0;
+      if(m.pdfs && m.pdfs.length) jml = m.pdfs.length;
+      else if(m.pdfData) jml = 1;
+      else if(m.url) jml = 1;
+      var p = card.querySelector('p.muted:last-of-type');
+      // Cari p yang ada tulisan PDF:
+      card.querySelectorAll('p').forEach(function(pp){
+        if(pp.textContent.includes('PDF:')) pp.textContent = 'PDF: ' + jml + ' file' + (m.folder ? ' • Folder: Ada ✅' : '');
+      });
+    });
+  };
+  if(typeof renderMaterialAdmin==='function') renderMaterialAdmin();
+}, 2000);
+</script>
 </body>
 </html>
