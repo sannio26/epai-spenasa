@@ -9792,5 +9792,82 @@ else setTimeout(jalan,1500);
   }, 500);
 })();
 </script>
+<script>
+// FIX 6.3 - TANGKAP KLIK LEWAT BODY, ANTI FORM, ANTI GAGAL
+(function(){
+  // Fungsi sapu jadi global, bisa dipanggil dari mana aja
+  window.sapuDobelBeneran = function(e){
+    if(e){ e.preventDefault(); e.stopPropagation(); }
+    if(!confirm('Sapu dobel sekarang? Yang disisain cuma 1 per Bab.')) return;
+    var btn = document.getElementById('btnSapuDob');
+    if(btn){ btn.textContent = '⏳ Lagi Nyapu...'; btn.disabled = true; }
+    try{
+      var L = (window.db && window.db.materials) || [];
+      if(!L.length){ alert('Materi kosong / belum ke-load. Refresh 1x dulu.'); return; }
+      var perBab = {};
+      L.forEach(function(m){
+        if(m.title==='__DELETED__') return;
+        var k = m.kelas+'|'+m.semester+'|'+m.chapter;
+        if(!perBab[k]) perBab[k]=[];
+        perBab[k].push(m);
+      });
+      var bersih = [];
+      var dibuang = 0;
+      Object.keys(perBab).forEach(function(k){
+        var arr = perBab[k];
+        arr.sort(function(a,b){
+          var sa = ((a.video||'').length + (a.url||'').length + (a.image||'').length);
+          var sb = ((b.video||'').length + (b.url||'').length + (b.image||'').length);
+          return sb - sa;
+        });
+        bersih.push(arr[0]);
+        dibuang += (arr.length - 1);
+      });
+      bersih.sort(function(a,b){
+        if(a.kelas!=b.kelas) return a.kelas-b.kelas;
+        if(a.semester!=b.semester) return a.semester-b.semester;
+        return a.chapter-b.chapter;
+      });
+      window.db.materials = bersih;
+      try{ if(typeof saveDB==='function') saveDB(); }catch(e){}
+      try{ if(typeof renderMaterialAdmin==='function') renderMaterialAdmin(); }catch(e){}
+      try{ if(typeof renderLessons==='function') renderLessons(); }catch(e){}
+      try{
+        var sb = window.sb || window.supabaseClient;
+        if(sb){
+          var up = bersih.map(function(m){
+            return {kelas:Number(m.kelas), semester:Number(m.semester), chapter:Number(m.chapter), title:m.title||'', desc:m.desc||'', video:m.video||'', url:m.url||''};
+          });
+          if(up.length) sb.from('materials').upsert(up, {onConflict:'kelas,semester,chapter'}).then(function(){ console.log('sapu server beres'); });
+        }
+      }catch(e){}
+      alert('BERES! Dibuang '+dibuang+' materi dobel. Tinggal '+bersih.length+' materi bersih.');
+    }catch(err){ alert('Gagal: '+err.message); }
+    if(btn){ btn.textContent = '🧹 SAPU DOBEL - Klik 1x Aja (INSTAN)'; btn.disabled = false; }
+  };
+
+  // Tangkap SEMUA klik di body, kalau yang diklik tombol sapu, jalankan
+  document.addEventListener('click', function(e){
+    var t = e.target;
+    while(t && t!==document.body){
+      if(t.id==='btnSapuDob'){
+        e.preventDefault();
+        e.stopPropagation();
+        window.sapuDobelBeneran(e);
+        return;
+      }
+      t = t.parentNode;
+    }
+  }, true); // true = tangkap duluan, sebelum form
+
+  // Ubah tombol jadi type button biar ga jadi submit
+  setInterval(function(){
+    var b = document.getElementById('btnSapuDob');
+    if(b && b.type!=='button'){ b.type='button'; b.setAttribute('type','button'); }
+  }, 500);
+
+  console.log('FIX 6.3 ANTI FORM AKTIF');
+})();
+</script>
 </body>
 </html>
