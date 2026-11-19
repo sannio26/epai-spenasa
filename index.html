@@ -9398,475 +9398,185 @@ else setTimeout(jalan,1500);
 })();
 </script>
 <script>
-// FIX 2 - MATERI EDIT & HAPUS BENERAN KE SERVER
+// ===== FIX FINAL - BANK MATERI V2 LENGKAP =====
 (function(){
-  function cari(mid,k,s,c){
-    var L=(window.db&&window.db.materials)||[];
-    for(var i=0;i<L.length;i++){ if(mid && String(L[i].id||L[i]._mid)===String(mid)) return L[i]; }
-    for(var j=0;j<L.length;j++){ if(Number(L[j].kelas)===Number(k)&&Number(L[j].semester)===Number(s)&&Number(L[j].chapter)===Number(c)) return L[j]; }
-    return null;
+  window.dbV2 = { list: [] };
+  try{ var s = localStorage.getItem('epai_bank_v2'); if(s) window.dbV2 = JSON.parse(s); }catch(e){}
+  function saveLocal(){ try{ localStorage.setItem('epai_bank_v2', JSON.stringify(window.dbV2)); }catch(e){} }
+  function getSB(){ return window.sb || window.supabaseClient || window.supabase; }
+  function driveId(url){
+    if(!url) return '';
+    var m = url.match(/\/d\/([^\/\?]+)/) || url.match(/folders\/([^\/\?]+)/) || url.match(/[?&]id=([^&]+)/);
+    return m ? m[1] : url;
   }
-  // TIMPA HAPUS - hapus di server dulu, baru di HP
-  window.deleteMaterialById = async function(mid,k,s,c){
-    if(!confirm('Hapus materi ini? Beneran kehapus dari server, ga bakal balik lagi.')) return;
-    var f=cari(mid,k,s,c);
-    if(!f){ alert('Materi tidak ditemukan'); return; }
-    try{
-      if(window.sb && f.id) {
-        var r=await window.sb.from('materials').delete().eq('id', f.id);
-        if(r.error) console.warn('hapus server gagal', r.error);
-      }
-    }catch(e){}
-    try{
-      window.db.materials = window.db.materials.filter(function(m){ return m!==f; });
-      if(typeof saveDB==='function') saveDB();
-      if(typeof renderMaterialAdmin==='function') renderMaterialAdmin();
-      if(typeof renderLessons==='function') renderLessons();
-    }catch(e){}
-    alert('BERES! Materi udah kehapus dari server.');
-  };
-  // TIMPA EDIT - isi form + tandain lagi mode edit biar ga dobel
-  window.editMaterialById = function(mid,k,s,c){
-    var f=cari(mid,k,s,c);
-    if(!f){ alert('Materi tidak ditemukan'); return; }
-    if(!f.id){ f.id='m_'+f.kelas+'_'+f.semester+'_'+f.chapter; f._mid=f.id; }
-    window.editingMid=f.id;
-    try{
-      document.getElementById('matClass').value=f.kelas;
-      document.getElementById('matSemester').value=f.semester;
-      document.getElementById('matChapter').value=f.chapter;
-      document.getElementById('matTitle').value=f.title||'';
-      document.getElementById('matDesc').value=f.desc||'';
-      document.getElementById('matVideo').value=f.video||'';
-      var u=document.getElementById('matUrl'); if(u) u.value=f.url||'';
-      var btn=document.getElementById('saveMaterialBtn'); if(btn) btn.textContent='Update Materi';
-      var cancel=document.getElementById('cancelMaterialEditBtn'); if(cancel) cancel.classList.remove('hidden');
-    }catch(e){}
-    alert('Mode Edit - ubah lalu klik Update Materi. Ga bakal dobel.');
-  };
-  console.log('FIX 2 MATERI EDIT HAPUS AKTIF');
-})();
-</script>
-<script>
-// FIX 3 - BUNUH MATERI DEFAULT + HAPUS NYATA
-(function(){
-  // 1. Ingat ID yang udah dihapus, simpan di HP biar ga balik lagi
-  var DELETED = [];
-  try{ DELETED = JSON.parse(localStorage.getItem('deletedMaterials')||'[]'); }catch(e){ DELETED=[]; }
-  function saveDeleted(){ try{ localStorage.setItem('deletedMaterials', JSON.stringify(DELETED)); }catch(e){} }
-  function kunci(m){
-    return (m.id||'') + '|' + m.kelas + '|' + m.semester + '|' + m.chapter + '|' + (m.title||'').slice(0,20);
+  function ytId(url){
+    var m = (url||'').match(/(?:v=|youtu\.be\/|shorts\/|embed\/)([A-Za-z0-9_-]{6,})/);
+    return m ? m[1] : '';
   }
-  function isDeleted(m){ return DELETED.indexOf(kunci(m))>=0; }
-
-  // 2. Bersihin materi default yang udah dihapus, tiap 1 detik
-  setInterval(function(){
-    try{
-      if(!window.db || !window.db.materials) return;
-      var awal = window.db.materials.length;
-      window.db.materials = window.db.materials.filter(function(m){ return !isDeleted(m); });
-      if(window.db.materials.length !== awal){
-        if(typeof saveDB==='function') saveDB();
-        if(typeof renderMaterialAdmin==='function') renderMaterialAdmin();
-        if(typeof renderLessons==='function') renderLessons();
-      }
-    }catch(e){}
-  }, 1000);
-
-  // 3. TIMPA SEMUA NAMA FUNGSI HAPUS YANG MUNGKIN DIPAKE TOMBOL
-  async function hapusBeneran(mid,k,s,c){
-    var L = (window.db&&window.db.materials)||[];
-    var f = null;
-    for(var i=0;i<L.length;i++){ if(mid && String(L[i].id||'')===String(mid)) f=L[i]; }
-    if(!f) for(var j=0;j<L.length;j++){ if(Number(L[j].kelas)===Number(k)&&Number(L[j].semester)===Number(s)&&Number(L[j].chapter)===Number(c)) f=L[j]; }
-    if(!f){ alert('Materi tidak ditemukan'); return; }
-    if(!confirm('Hapus materi ini? Ga bakal balik lagi.')) return;
-    DELETED.push(kunci(f)); saveDeleted();
-    try{ if(window.sb && f.id) await window.sb.from('materials').delete().eq('id', f.id); }catch(e){}
-    try{ if(window.sb) await window.sb.from('materials').delete().match({kelas:f.kelas, semester:f.semester, chapter:f.chapter}); }catch(e){}
-    window.db.materials = window.db.materials.filter(function(m){ return m!==f; });
-    try{ if(typeof saveDB==='function') saveDB(); }catch(e){}
-    try{ if(typeof renderMaterialAdmin==='function') renderMaterialAdmin(); }catch(e){}
-    try{ if(typeof renderLessons==='function') renderLessons(); }catch(e){}
-    alert('BERES! Udah kehapus permanen, ga bakal balik lagi.');
-  }
-  // Timpa semua varian nama biar tombol apapun kepanggil
-  window.deleteMaterialById = hapusBeneran;
-  window.deleteMaterial = hapusBeneran;
-  window.hapusMateri = hapusBeneran;
-  window.removeMaterial = hapusBeneran;
-  window.delMaterial = hapusBeneran;
-
-  // 4. TIMPA EDIT JUGA SEMUA VARIAN
-  function editBeneran(mid,k,s,c){
-    var L = (window.db&&window.db.materials)||[];
-    var f = null;
-    for(var i=0;i<L.length;i++){ if(mid && String(L[i].id||'')===String(mid)) f=L[i]; }
-    if(!f) for(var j=0;j<L.length;j++){ if(Number(L[j].kelas)===Number(k)&&Number(L[j].semester)===Number(s)&&Number(L[j].chapter)===Number(c)) f=L[j]; }
-    if(!f){ alert('Materi tidak ditemukan'); return; }
-    if(!f.id){ f.id='m_'+f.kelas+'_'+f.semester+'_'+f.chapter; }
-    window.editingMid = f.id;
-    window.editingMaterialId = f.id;
-    window.editId = f.id;
-    try{
-      document.getElementById('matClass').value=f.kelas;
-      document.getElementById('matSemester').value=f.semester;
-      document.getElementById('matChapter').value=f.chapter;
-      document.getElementById('matTitle').value=f.title||'';
-      document.getElementById('matDesc').value=f.desc||'';
-      document.getElementById('matVideo').value=f.video||'';
-      var u=document.getElementById('matUrl'); if(u) u.value=f.url||'';
-      var btn=document.getElementById('saveMaterialBtn'); if(btn) btn.textContent='Update Materi';
-      var cancel=document.getElementById('cancelMaterialEditBtn'); if(cancel) cancel.classList.remove('hidden');
-      window.scrollTo(0,0);
-    }catch(e){}
-    alert('Mode Edit - ubah lalu klik Update Materi.');
-  }
-  window.editMaterialById = editBeneran;
-  window.editMaterial = editBeneran;
-  window.editMateri = editBeneran;
-
-  console.log('FIX 3 MATERI DEFAULT MATI - AKTIF');
-})();
-</script>
-<script>
-// FIX 4 - HAPUS MATERI SYNC SEMUA HP PAKE TOMBSTONE
-(function(){
-  function getSB(){ return window.sb || window.supabaseClient || window.supabase || null; }
-  function keyOf(m){ return 'K'+m.kelas+'-S'+m.semester+'-B'+m.chapter; }
-
-  // 1. Cek batu nisan di server, terus hapus yang udah ditandai
-  async function cekNisan(){
-    var sb = getSB(); if(!sb) return;
-    try{
-      var r = await sb.from('materials').select('*').eq('title','__DELETED__');
-      if(r.error || !r.data) return;
-      var nisan = r.data.map(function(x){ return keyOf(x); });
-      if(!nisan.length) return;
-      if(!window.db || !window.db.materials) return;
-      var awal = window.db.materials.length;
-      window.db.materials = window.db.materials.filter(function(m){
-        // jangan hapus nisannya sendiri, hapus materi aslinya
-        if(m.title==='__DELETED__') return true;
-        return nisan.indexOf(keyOf(m))<0;
-      });
-      // Bersihin dobel Bab yang sama - sisain 1 aja
-      var seen={}; window.db.materials = window.db.materials.filter(function(m){
-        var k=keyOf(m)+'|'+m.title;
-        if(seen[k]) return false; seen[k]=true; return true;
-      });
-      if(window.db.materials.length!==awal){
-        try{ if(typeof saveDB==='function') saveDB(); }catch(e){}
-        try{ if(typeof renderMaterialAdmin==='function') renderMaterialAdmin(); }catch(e){}
-        try{ if(typeof renderLessons==='function') renderLessons(); }catch(e){}
-      }
-    }catch(e){}
-  }
-  setInterval(cekNisan, 3000);
-  setTimeout(cekNisan, 2000);
-
-  // 2. Timpa Hapus - kirim nisan ke server dulu!
-  async function hapusSync(mid,k,s,c){
-    var L=(window.db&&window.db.materials)||[];
-    var f=null;
-    for(var i=0;i<L.length;i++){ if(mid && String(L[i].id||'')===String(mid)) f=L[i]; }
-    if(!f) for(var j=0;j<L.length;j++){ if(Number(L[j].kelas)===Number(k)&&Number(L[j].semester)===Number(s)&&Number(L[j].chapter)===Number(c)) f=L[j]; }
-    if(!f){ alert('Materi tidak ditemukan'); return; }
-    if(!confirm('Hapus Bab '+f.chapter+' ini? Bakal ilang di SEMUA HP.')) return;
-
-    var sb=getSB();
-    // Kirim nisan ke server - ini kuncinya!
-    try{
-      if(sb){
-        await sb.from('materials').upsert({
-          kelas: Number(f.kelas), semester: Number(f.semester), chapter: Number(f.chapter),
-          title: '__DELETED__', desc: 'deleted', video:'', url:''
-        }, {onConflict:'kelas,semester,chapter'});
-        // Coba hapus yang asli juga kalau ada di server
-        await sb.from('materials').delete().eq('kelas', Number(f.kelas)).eq('semester', Number(f.semester)).eq('chapter', Number(f.chapter)).neq('title','__DELETED__');
-        if(f.id) await sb.from('materials').delete().eq('id', f.id).neq('title','__DELETED__');
-      }
-    }catch(e){ console.log('nisan gagal',e); }
-
-    // Hapus di HP sendiri
-    window.db.materials = window.db.materials.filter(function(m){ return m!==f && !(m.title==='__DELETED__' && keyOf(m)===keyOf(f)); });
-    // Hapus juga yang dobel dengan kunci sama
-    window.db.materials = window.db.materials.filter(function(m){ return !(keyOf(m)===keyOf(f) && m.title!=='__DELETED__'); });
-    try{ if(typeof saveDB==='function') saveDB(); }catch(e){}
-    try{ if(typeof renderMaterialAdmin==='function') renderMaterialAdmin(); }catch(e){}
-    try{ if(typeof renderLessons==='function') renderLessons(); }catch(e){}
-    alert('BERES! Nisan terkirim. Tunggu 5 detik, HP Murid bakal ikut kehapus.');
-  }
-
-  // Timpa SEMUA nama hapus
-  window.deleteMaterialById = hapusSync;
-  window.deleteMaterial = hapusSync;
-  window.hapusMateri = hapusSync;
-  window.removeMaterial = hapusSync;
-  window.delMaterial = hapusSync;
-  console.log('FIX 4 TOMBSTONE AKTIF');
-})();
-</script>
-<script>
-// FIX 6 - TOMBOL SAPU DOBEL SEKALI KLIK
-(function(){
-  setTimeout(function(){
-    if(document.getElementById('btnSapuDob')) return;
-    var btn = document.createElement('button');
-    btn.id = 'btnSapuDob';
-    btn.textContent = '🧹 SAPU DOBEL - Klik 1x Aja';
-    btn.style.cssText = 'background:#dc2626;color:#fff;padding:12px 18px;border-radius:12px;font-weight:700;margin:10px 0;width:100%;border:none;';
-    btn.onclick = async function(){
-      if(!confirm('Sapu semua materi DOBEL? Yang disisain cuma 1 per Bab, yang paling lengkap (ada Video/PDF). Lanjut?')) return;
-      var L = window.db.materials || [];
-      var perBab = {};
-      L.forEach(function(m){
-        if(m.title==='__DELETED__') return;
-        var k = m.kelas+'|'+m.semester+'|'+m.chapter;
-        if(!perBab[k]) perBab[k]=[];
-        perBab[k].push(m);
-      });
-      var bersih = [];
-      var dibuang = 0;
-      Object.keys(perBab).forEach(function(k){
-        var arr = perBab[k];
-        arr.sort(function(a,b){
-          var sa = ((a.video||'').length + (a.url||'').length + (a.image||'').length);
-          var sb = ((b.video||'').length + (b.url||'').length + (b.image||'').length);
-          return sb - sa;
-        });
-        bersih.push(arr[0]);
-        dibuang += (arr.length - 1);
-      });
-      bersih.sort(function(a,b){
-        if(a.kelas!=b.kelas) return a.kelas-b.kelas;
-        if(a.semester!=b.semester) return a.semester-b.semester;
-        return a.chapter-b.chapter;
-      });
-      window.db.materials = bersih;
-      try{ if(typeof saveDB==='function') saveDB(); }catch(e){}
-      try{
-        var sb = window.sb || window.supabaseClient;
-        if(sb){
-          await sb.from('materials').delete().neq('title','__DELETED__');
-          await new Promise(function(r){ setTimeout(r,500); });
-          var up = bersih.map(function(m){
-            return {kelas:Number(m.kelas), semester:Number(m.semester), chapter:Number(m.chapter), title:m.title||'', desc:m.desc||'', video:m.video||'', url:m.url||''};
-          });
-          if(up.length) await sb.from('materials').upsert(up, {onConflict:'kelas,semester,chapter'});
-        }
-      }catch(e){ console.log('sapu server',e); }
-      try{ if(typeof renderMaterialAdmin==='function') renderMaterialAdmin(); }catch(e){}
-      try{ if(typeof renderLessons==='function') renderLessons(); }catch(e){}
-      alert('BERES! Dibuang '+dibuang+' materi dobel. Tinggal '+bersih.length+' materi bersih. Cek HP Murid 10 detik lagi.');
-    };
-    var simpan = document.getElementById('saveMaterialBtn');
-    if(simpan && simpan.parentNode) simpan.parentNode.insertBefore(btn, simpan);
-    else document.body.prepend(btn);
-  }, 1000);
-})();
-</script>
-<script>
-// FIX 6.1 - SAPU INSTAN, GA NUNGGU SERVER
-(function(){
-  setTimeout(function(){
-    var btn = document.getElementById('btnSapuDob');
-    if(!btn) return;
-    btn.textContent = '🧹 SAPU DOBEL - Klik 1x Aja (INSTAN)';
-    btn.onclick = function(){
-      if(!confirm('Sapu dobel sekarang? Yang disisain cuma 1 per Bab.')) return;
-      btn.textContent = '⏳ Lagi Nyapu...';
-      btn.disabled = true;
-      try{
-        var L = window.db.materials || [];
-        var perBab = {};
-        L.forEach(function(m){
-          if(m.title==='__DELETED__') return;
-          var k = m.kelas+'|'+m.semester+'|'+m.chapter;
-          if(!perBab[k]) perBab[k]=[];
-          perBab[k].push(m);
-        });
-        var bersih = [];
-        var dibuang = 0;
-        Object.keys(perBab).forEach(function(k){
-          var arr = perBab[k];
-          arr.sort(function(a,b){
-            var sa = ((a.video||'').length + (a.url||'').length + (a.image||'').length);
-            var sb = ((b.video||'').length + (b.url||'').length + (b.image||'').length);
-            return sb - sa;
-          });
-          bersih.push(arr[0]);
-          dibuang += (arr.length - 1);
-        });
-        bersih.sort(function(a,b){
-          if(a.kelas!=b.kelas) return a.kelas-b.kelas;
-          if(a.semester!=b.semester) return a.semester-b.semester;
-          return a.chapter-b.chapter;
-        });
-        window.db.materials = bersih;
-        try{ if(typeof saveDB==='function') saveDB(); }catch(e){}
-        try{ if(typeof renderMaterialAdmin==='function') renderMaterialAdmin(); }catch(e){}
-        try{ if(typeof renderLessons==='function') renderLessons(); }catch(e){}
-        // Server di belakang layar aja, jangan ditungguin
-        try{
-          var sb = window.sb || window.supabaseClient;
-          if(sb){
-            var up = bersih.map(function(m){
-              return {kelas:Number(m.kelas), semester:Number(m.semester), chapter:Number(m.chapter), title:m.title||'', desc:m.desc||'', video:m.video||'', url:m.url||''};
-            });
-            // Cuma upsert yang bersih, TANPA delete semua dulu, biar ga lama
-            if(up.length) sb.from('materials').upsert(up, {onConflict:'kelas,semester,chapter'}).then(function(){ console.log('sapu server beres'); });
-          }
-        }catch(e){}
-        alert('BERES! Dibuang '+dibuang+' materi dobel. Tinggal '+bersih.length+' materi bersih.');
-      }catch(e){ alert('Gagal: '+e.message); }
-      btn.textContent = '🧹 SAPU DOBEL - Klik 1x Aja (INSTAN)';
-      btn.disabled = false;
-    };
-    console.log('FIX 6.1 INSTAN AKTIF');
-  }, 500);
-})();
-</script>
-<script>
-// FIX 6.2 - TUNGGU TOMBOL SAMPE ADA, BARU TIMPA
-(function(){
-  var coba = 0;
-  var timer = setInterval(function(){
-    coba++;
-    var btn = document.getElementById('btnSapuDob');
-    if(!btn){
-      if(coba>20){ clearInterval(timer); }
-      return; // belum lahir, tunggu lagi
+  function renderVideo(video){
+    if(!video) return '';
+    if(video.includes('drive.google.com')){
+      var id = driveId(video);
+      return '<div style="position:relative;padding-top:56.25%;border-radius:12px;overflow:hidden;margin:8px 0;background:#000"><iframe src="https://drive.google.com/file/d/'+id+'/preview" style="position:absolute;inset:0;width:100%;height:100%;border:0" allow="autoplay" allowfullscreen></iframe></div>'
+      + '<div style="display:flex;gap:8px;margin-bottom:8px"><a href="https://drive.google.com/file/d/'+id+'/view" target="_blank" style="flex:1;text-align:center;background:#0f766e;color:#fff;padding:10px;border-radius:10px;text-decoration:none;font-weight:700;font-size:13px">▶️ Nonton Fullscreen</a><a href="https://drive.google.com/uc?export=download&id='+id+'" target="_blank" style="flex:1;text-align:center;background:#eab308;color:#000;padding:10px;border-radius:10px;text-decoration:none;font-weight:700;font-size:13px">⬇️ Download Video</a></div>';
     }
-    clearInterval(timer);
-    btn.textContent = '🧹 SAPU DOBEL - Klik 1x Aja (INSTAN)';
-    btn.onclick = function(){
-      if(!confirm('Sapu dobel sekarang? Yang disisain cuma 1 per Bab.')) return;
-      btn.textContent = '⏳ Lagi Nyapu...';
-      btn.disabled = true;
-      try{
-        var L = window.db.materials || [];
-        var perBab = {};
-        L.forEach(function(m){
-          if(m.title==='__DELETED__') return;
-          var k = m.kelas+'|'+m.semester+'|'+m.chapter;
-          if(!perBab[k]) perBab[k]=[];
-          perBab[k].push(m);
-        });
-        var bersih = [];
-        var dibuang = 0;
-        Object.keys(perBab).forEach(function(k){
-          var arr = perBab[k];
-          arr.sort(function(a,b){
-            var sa = ((a.video||'').length + (a.url||'').length + (a.image||'').length);
-            var sb = ((b.video||'').length + (b.url||'').length + (b.image||'').length);
-            return sb - sa;
-          });
-          bersih.push(arr[0]);
-          dibuang += (arr.length - 1);
-        });
-        bersih.sort(function(a,b){
-          if(a.kelas!=b.kelas) return a.kelas-b.kelas;
-          if(a.semester!=b.semester) return a.semester-b.semester;
-          return a.chapter-b.chapter;
-        });
-        window.db.materials = bersih;
-        try{ if(typeof saveDB==='function') saveDB(); }catch(e){}
-        try{ if(typeof renderMaterialAdmin==='function') renderMaterialAdmin(); }catch(e){}
-        try{ if(typeof renderLessons==='function') renderLessons(); }catch(e){}
-        try{
-          var sb = window.sb || window.supabaseClient;
-          if(sb){
-            var up = bersih.map(function(m){
-              return {kelas:Number(m.kelas), semester:Number(m.semester), chapter:Number(m.chapter), title:m.title||'', desc:m.desc||'', video:m.video||'', url:m.url||''};
-            });
-            if(up.length) sb.from('materials').upsert(up, {onConflict:'kelas,semester,chapter'}).then(function(){ console.log('sapu server beres'); });
-          }
-        }catch(e){}
-        alert('BERES! Dibuang '+dibuang+' materi dobel. Tinggal '+bersih.length+' materi bersih.');
-      }catch(e){ alert('Gagal: '+e.message); }
-      btn.textContent = '🧹 SAPU DOBEL - Klik 1x Aja (INSTAN)';
-      btn.disabled = false;
-    };
-    console.log('FIX 6.2 INSTAN AKTIF');
-  }, 500);
-})();
-</script>
-<script>
-// FIX 6.3 - TANGKAP KLIK LEWAT BODY, ANTI FORM, ANTI GAGAL
-(function(){
-  // Fungsi sapu jadi global, bisa dipanggil dari mana aja
-  window.sapuDobelBeneran = function(e){
-    if(e){ e.preventDefault(); e.stopPropagation(); }
-    if(!confirm('Sapu dobel sekarang? Yang disisain cuma 1 per Bab.')) return;
-    var btn = document.getElementById('btnSapuDob');
-    if(btn){ btn.textContent = '⏳ Lagi Nyapu...'; btn.disabled = true; }
-    try{
-      var L = (window.db && window.db.materials) || [];
-      if(!L.length){ alert('Materi kosong / belum ke-load. Refresh 1x dulu.'); return; }
-      var perBab = {};
-      L.forEach(function(m){
-        if(m.title==='__DELETED__') return;
-        var k = m.kelas+'|'+m.semester+'|'+m.chapter;
-        if(!perBab[k]) perBab[k]=[];
-        perBab[k].push(m);
-      });
-      var bersih = [];
-      var dibuang = 0;
-      Object.keys(perBab).forEach(function(k){
-        var arr = perBab[k];
-        arr.sort(function(a,b){
-          var sa = ((a.video||'').length + (a.url||'').length + (a.image||'').length);
-          var sb = ((b.video||'').length + (b.url||'').length + (b.image||'').length);
-          return sb - sa;
-        });
-        bersih.push(arr[0]);
-        dibuang += (arr.length - 1);
-      });
-      bersih.sort(function(a,b){
-        if(a.kelas!=b.kelas) return a.kelas-b.kelas;
-        if(a.semester!=b.semester) return a.semester-b.semester;
-        return a.chapter-b.chapter;
-      });
-      window.db.materials = bersih;
-      try{ if(typeof saveDB==='function') saveDB(); }catch(e){}
-      try{ if(typeof renderMaterialAdmin==='function') renderMaterialAdmin(); }catch(e){}
-      try{ if(typeof renderLessons==='function') renderLessons(); }catch(e){}
-      try{
-        var sb = window.sb || window.supabaseClient;
-        if(sb){
-          var up = bersih.map(function(m){
-            return {kelas:Number(m.kelas), semester:Number(m.semester), chapter:Number(m.chapter), title:m.title||'', desc:m.desc||'', video:m.video||'', url:m.url||''};
-          });
-          if(up.length) sb.from('materials').upsert(up, {onConflict:'kelas,semester,chapter'}).then(function(){ console.log('sapu server beres'); });
-        }
-      }catch(e){}
-      alert('BERES! Dibuang '+dibuang+' materi dobel. Tinggal '+bersih.length+' materi bersih.');
-    }catch(err){ alert('Gagal: '+err.message); }
-    if(btn){ btn.textContent = '🧹 SAPU DOBEL - Klik 1x Aja (INSTAN)'; btn.disabled = false; }
-  };
+    var yid = ytId(video);
+    if(yid) return '<div style="position:relative;padding-top:56.25%;border-radius:12px;overflow:hidden;margin:8px 0"><iframe src="https://www.youtube.com/embed/'+yid+'" style="position:absolute;inset:0;width:100%;height:100%;border:0" allowfullscreen></iframe></div>';
+    return '<a href="'+video+'" target="_blank">▶️ Buka Video</a>';
+  }
+  function renderFolder(folder){
+    if(!folder) return '';
+    var fid = driveId(folder);
+    return '<div style="background:#fef9c3;border:1.5px solid #facc15;border-radius:12px;padding:12px;margin:10px 0"><b>📁 FOLDER KISI-KISI SOAL</b><div style="font-size:13px;color:#713f12;margin:4px 0">Klik untuk lihat semua file kisi-kisi. Bisa dibuka & download satu-satu / download semua jadi ZIP.</div><a href="https://drive.google.com/drive/folders/'+fid+'" target="_blank" style="display:block;text-align:center;background:#eab308;color:#000;padding:12px;border-radius:10px;text-decoration:none;font-weight:800">📂 BUKA FOLDER KISI-KISI</a><div style="font-size:12px;text-align:center;margin-top:6px"><a href="https://drive.google.com/embeddedfolderview?id='+fid+'#grid" target="_blank">Lihat isi folder di sini</a></div></div>';
+  }
+  function renderPdfs(pdfs){
+    if(!pdfs || !pdfs.length) return '<span style="font-size:12px;color:#94a3b8">Tidak ada PDF</span>';
+    return pdfs.map(function(p,i){ return '<a href="'+p.data+'" target="_blank" download="'+(p.name||'materi.pdf')+'" style="display:inline-block;background:#06b6d4;color:#fff;padding:8px 12px;border-radius:999px;font-size:12px;font-weight:700;margin:3px;text-decoration:none">📄 '+(p.isLink?'PDF Link '+(i+1):p.name)+'</a>'; }).join('');
+  }
+  function kompresGambar(file){
+    return new Promise(function(res){
+      var r = new FileReader();
+      r.onload = function(){
+        var img = new Image();
+        img.onload = function(){
+          var max=900, w=img.width, h=img.height;
+          if(w>max){ h=h*max/w; w=max; }
+          var c=document.createElement('canvas'); c.width=w; c.height=h;
+          c.getContext('2d').drawImage(img,0,0,w,h);
+          res(c.toDataURL('image/jpeg',0.7));
+        };
+        img.src=r.result;
+      };
+      r.readAsDataURL(file);
+    });
+  }
+  function bacaFile(f){ return new Promise(function(res){ var r=new FileReader(); r.onload=function(){res(r.result)}; r.readAsDataURL(f); }); }
 
-  // Tangkap SEMUA klik di body, kalau yang diklik tombol sapu, jalankan
-  document.addEventListener('click', function(e){
-    var t = e.target;
-    while(t && t!==document.body){
-      if(t.id==='btnSapuDob'){
-        e.preventDefault();
-        e.stopPropagation();
-        window.sapuDobelBeneran(e);
-        return;
+  function hapusLama(){
+    document.querySelectorAll('button, a, h2, h3, label').forEach(function(el){
+      var t=(el.textContent||'').trim();
+      if(t==='Simpan materi'){
+        var form=el.closest('form')||el.parentNode;
+        for(var i=0;i<3 && form && form.parentNode;i++) form=form.parentNode;
+        if(form) form.style.display='none';
       }
-      t = t.parentNode;
-    }
-  }, true); // true = tangkap duluan, sebelum form
+      if(t==='Materi' || t==='📚 Materi' || t==='Daftar Materi'){ if(el.id!=='btnBukaV2') el.style.display='none'; }
+    });
+  }
+  setInterval(hapusLama, 1000);
 
-  // Ubah tombol jadi type button biar ga jadi submit
-  setInterval(function(){
-    var b = document.getElementById('btnSapuDob');
-    if(b && b.type!=='button'){ b.type='button'; b.setAttribute('type','button'); }
-  }, 500);
+  setTimeout(function(){
+    var bar=document.createElement('div');
+    bar.id='barV2'; bar.style.cssText='position:fixed;top:70px;left:10px;right:10px;z-index:9999;display:flex;gap:8px;';
+    bar.innerHTML='<button id="btnBukaV2" style="flex:1;background:#0f766e;color:#fff;border:none;padding:14px;border-radius:14px;font-weight:800;font-size:15px;box-shadow:0 4px 14px rgba(0,0,0,.25)">📚 BANK MATERI V2 - Klik Disini</button><button id="btnTutupV2" style="background:#334155;color:#fff;border:none;padding:14px 16px;border-radius:14px;font-weight:800">✕</button>';
+    document.body.appendChild(bar);
 
-  console.log('FIX 6.3 ANTI FORM AKTIF');
+    var panel=document.createElement('div');
+    panel.id='panelV2'; panel.style.cssText='display:none;position:fixed;inset:0;z-index:10000;background:#f1f5f9;overflow-y:auto;padding:16px;padding-bottom:100px;';
+    panel.innerHTML='<div style="max-width:720px;margin:0 auto;">'
+    +'<h2 style="font-size:22px;margin:8px 0 4px">📚 Bank Materi V2</h2><p style="color:#64748b;margin:0 0 14px;font-size:13px">Kelas 7 • 8 • 9 | Semester 1 • 2 | Bab bebas | Sinkron ke Siswa</p>'
+    +'<div style="background:#fff;border-radius:16px;padding:16px;box-shadow:0 2px 10px rgba(0,0,0,.06)">'
+    +'<label style="font-weight:700;font-size:13px">KELAS</label><select id="v2_kelas" style="width:100%;padding:12px;border-radius:10px;border:1.5px solid #e2e8f0;margin:6px 0 12px"><option value="7">Kelas 7</option><option value="8">Kelas 8</option><option value="9">Kelas 9</option></select>'
+    +'<label style="font-weight:700;font-size:13px">SEMESTER</label><select id="v2_sem" style="width:100%;padding:12px;border-radius:10px;border:1.5px solid #e2e8f0;margin:6px 0 12px"><option value="1">Semester 1</option><option value="2">Semester 2</option></select>'
+    +'<label style="font-weight:700;font-size:13px">BAB (BEBAS 1-30)</label><input id="v2_bab" type="number" min="1" max="30" value="1" style="width:100%;padding:12px;border-radius:10px;border:1.5px solid #e2e8f0;margin:6px 0 12px">'
+    +'<label style="font-weight:700;font-size:13px">JUDUL MATERI</label><input id="v2_judul" placeholder="Contoh: Pentingnya Keimanan" style="width:100%;padding:12px;border-radius:10px;border:1.5px solid #e2e8f0;margin:6px 0 12px">'
+    +'<label style="font-weight:700;font-size:13px">DESKRIPSI</label><textarea id="v2_desc" rows="3" placeholder="Ringkasan materi..." style="width:100%;padding:12px;border-radius:10px;border:1.5px solid #e2e8f0;margin:6px 0 12px"></textarea>'
+    +'<label style="font-weight:700;font-size:13px">🎥 LINK VIDEO YOUTUBE (OPSIONAL)</label><input id="v2_video" placeholder="https://youtube.com/..." style="width:100%;padding:12px;border-radius:10px;border:1.5px solid #e2e8f0;margin:6px 0 12px">'
+    +'<label style="font-weight:700;font-size:13px">🎥 LINK VIDEO GOOGLE DRIVE (BIAR BISA NONTON + DOWNLOAD)</label><input id="v2_drive" placeholder="https://drive.google.com/file/d/ID/preview" style="width:100%;padding:12px;border-radius:10px;border:1.5px solid #e2e8f0;margin:6px 0 4px"><div style="font-size:12px;color:#64748b;margin-bottom:12px">Drive -> Bagikan -> Copy link -> Ganti /view jadi /preview</div>'
+    +'<label style="font-weight:700;font-size:13px">📁 LINK FOLDER KISI-KISI (1 LINK UNTUK BANYAK FILE)</label><input id="v2_folder" placeholder="https://drive.google.com/drive/folders/ID_FOLDER" style="width:100%;padding:12px;border-radius:10px;border:1.5px solid #e2e8f0;margin:6px 0 12px">'
+    +'<label style="font-weight:700;font-size:13px">LINK PDF (BOLEH BANYAK, 1 BARIS 1 LINK)</label><textarea id="v2_linkpdf" rows="3" placeholder="https://drive.google.com/...&#10;https://drive.google.com/..." style="width:100%;padding:12px;border-radius:10px;border:1.5px solid #e2e8f0;margin:6px 0 12px"></textarea>'
+    +'<label style="font-weight:700;font-size:13px">📄 UPLOAD PDF - BISA PILIH BANYAK SEKALIGUS!</label><div style="background:#ecfeff;border:2px dashed #06b6d4;border-radius:12px;padding:14px;text-align:center;margin:6px 0"><input id="v2_files" type="file" accept=".pdf" multiple style="width:100%"><div id="v2_fileinfo" style="font-size:12px;color:#0e7490;margin-top:6px">Belum ada file dipilih. Bisa pilih 2,3,5 PDF sekaligus.</div></div>'
+    +'<label style="font-weight:700;font-size:13px">🖼️ FOTO (AUTO-KOMPRES BIAR ENTENG)</label><input id="v2_img" type="file" accept="image/*" style="width:100%;padding:10px;margin:6px 0 14px">'
+    +'<button id="v2_simpan" type="button" style="width:100%;background:#0f766e;color:#fff;border:none;padding:15px;border-radius:12px;font-weight:800;font-size:16px">💾 SIMPAN & SINKRON KE SISWA</button><div id="v2_status" style="font-size:13px;color:#0f766e;margin-top:8px;text-align:center"></div>'
+    +'</div><div style="display:flex;gap:8px;margin:16px 0"><select id="v2_filter_kelas" style="flex:1;padding:10px;border-radius:10px;border:1.5px solid #e2e8f0"><option value="">Semua Kelas</option><option value="7">Kelas 7</option><option value="8">Kelas 8</option><option value="9">Kelas 9</option></select><select id="v2_filter_sem" style="flex:1;padding:10px;border-radius:10px;border:1.5px solid #e2e8f0"><option value="">Semua Sem</option><option value="1">Sem 1</option><option value="2">Sem 2</option></select></div><div id="v2_list"></div></div>';
+    document.body.appendChild(panel);
+
+    document.getElementById('btnBukaV2').onclick=function(){ panel.style.display='block'; renderV2(); };
+    document.getElementById('btnTutupV2').onclick=function(){ panel.style.display='none'; };
+    document.getElementById('v2_filter_kelas').onchange=renderV2;
+    document.getElementById('v2_filter_sem').onchange=renderV2;
+    document.getElementById('v2_files').onchange=function(){ var n=this.files.length; document.getElementById('v2_fileinfo').textContent=n?n+' file PDF dipilih: '+Array.from(this.files).map(function(f){return f.name}).join(', '):'Belum ada file dipilih.'; };
+
+    window.editIdV2=null;
+    document.getElementById('v2_simpan').onclick=async function(){
+      var btn=this, judul=document.getElementById('v2_judul').value.trim();
+      if(!judul){ alert('Judul wajib diisi bro!'); return; }
+      btn.textContent='⏳ Lagi Nyimpen + Sinkron ke Siswa...'; btn.disabled=true;
+      try{
+        var isEdit=window.editIdV2, lama=isEdit?(window.dbV2.list||[]).find(function(x){return x.id==isEdit}):null;
+        var files=document.getElementById('v2_files').files, pdfsBaru=[];
+        for(var i=0;i<files.length;i++){ var d=await bacaFile(files[i]); pdfsBaru.push({name:files[i].name, data:d}); }
+        var linkPdfs=document.getElementById('v2_linkpdf').value.split('\n').map(function(s){return s.trim()}).filter(Boolean).map(function(u){return {name:'Link PDF', data:u, isLink:true}});
+        var allPdfs=linkPdfs.concat(pdfsBaru);
+        if(isEdit && pdfsBaru.length===0 && linkPdfs.length===0 && lama) allPdfs=lama.pdfs||[];
+        else if(isEdit && lama){ allPdfs=allPdfs.concat((lama.pdfs||[]).filter(function(p){return !p.isLink})); }
+        var imgData=lama?lama.image:'';
+        var imgF=document.getElementById('v2_img').files[0];
+        if(imgF) imgData=await kompresGambar(imgF);
+        var driveVal=document.getElementById('v2_drive').value.trim();
+        var videoVal=driveVal || document.getElementById('v2_video').value.trim();
+        var item={id:isEdit||Date.now().toString(), kelas:document.getElementById('v2_kelas').value, semester:document.getElementById('v2_sem').value, chapter:Number(document.getElementById('v2_bab').value)||1, title:judul, desc:document.getElementById('v2_desc').value, video:videoVal, image:imgData, pdfs:allPdfs, folder:document.getElementById('v2_folder').value.trim(), created:new Date().toLocaleDateString('id-ID')};
+        window.dbV2.list=window.dbV2.list.filter(function(m){ return m.id!=item.id && !(m.kelas==item.kelas && m.semester==item.semester && m.chapter==item.chapter); });
+        window.dbV2.list.push(item);
+        window.dbV2.list.sort(function(a,b){ if(a.kelas!=b.kelas) return a.kelas-b.kelas; if(a.semester!=b.semester) return a.semester-b.semester; return a.chapter-b.chapter; });
+        saveLocal();
+        var sb=getSB();
+        if(sb) await sb.from('materials_v2').upsert({id:item.id, kelas:Number(item.kelas), semester:Number(item.semester), chapter:Number(item.chapter), title:item.title, description:item.desc, video:item.video, image:item.image, pdfs:item.pdfs, folder:item.folder}, {onConflict:'id'});
+        window.editIdV2=null;
+        document.getElementById('v2_status').textContent='✅ Tersimpan & SUDAH SINKRON ke HP Siswa! '+allPdfs.length+' PDF';
+        ['v2_judul','v2_desc','v2_video','v2_drive','v2_folder','v2_linkpdf'].forEach(function(id){document.getElementById(id).value=''});
+        document.getElementById('v2_files').value=''; document.getElementById('v2_img').value=''; document.getElementById('v2_fileinfo').textContent='Belum ada file dipilih.';
+        renderV2();
+      }catch(e){ alert('Gagal: '+e.message); }
+      btn.textContent='💾 SIMPAN & SINKRON KE SISWA'; btn.disabled=false;
+    };
+
+    window.renderV2=function(){
+      var fk=document.getElementById('v2_filter_kelas').value, fs=document.getElementById('v2_filter_sem').value;
+      var list=window.dbV2.list.filter(function(m){ return (!fk||m.kelas==fk) && (!fs||m.semester==fs); });
+      var el=document.getElementById('v2_list');
+      if(!list.length){ el.innerHTML='<p style="text-align:center;color:#94a3b8">Belum ada materi.</p>'; return; }
+      el.innerHTML=list.map(function(m){
+        return '<div style="background:#fff;border-radius:14px;padding:14px;margin-bottom:12px"><b>Kelas '+m.kelas+' • Sem '+m.semester+' • Bab '+m.chapter+': '+m.title+'</b><div style="font-size:13px;color:#475569;margin:6px 0">'+(m.desc||'')+'</div>'+(m.image?'<img src="'+m.image+'" style="width:100%;border-radius:10px">':'')+renderVideo(m.video)+renderFolder(m.folder)+'<div>'+renderPdfs(m.pdfs)+'</div><div style="display:flex;gap:8px;margin-top:10px"><button onclick="editV2(\''+m.id+'\')" style="flex:1;background:#fef3c7;color:#92400e;border:none;padding:10px;border-radius:10px;font-weight:700">✏️ EDIT</button><button onclick="hapusV2Sync(\''+m.id+'\')" style="flex:1;background:#fee2e2;color:#dc2626;border:none;padding:10px;border-radius:10px;font-weight:700">🗑️ HAPUS</button></div></div>';
+      }).join('');
+    };
+    window.editV2=function(id){
+      var m=(window.dbV2.list||[]).find(function(x){return x.id==id}); if(!m) return;
+      document.getElementById('v2_kelas').value=m.kelas; document.getElementById('v2_sem').value=m.semester; document.getElementById('v2_bab').value=m.chapter; document.getElementById('v2_judul').value=m.title; document.getElementById('v2_desc').value=m.desc;
+      if((m.video||'').includes('drive.google.com')){ document.getElementById('v2_drive').value=m.video; document.getElementById('v2_video').value=''; } else { document.getElementById('v2_video').value=m.video||''; document.getElementById('v2_drive').value=''; }
+      document.getElementById('v2_folder').value=m.folder||'';
+      document.getElementById('v2_linkpdf').value=(m.pdfs||[]).filter(function(p){return p.isLink}).map(function(p){return p.data}).join('\n');
+      window.editIdV2=id; document.getElementById('v2_simpan').textContent='✏️ UPDATE MATERI INI';
+      document.getElementById('panelV2').scrollTo({top:0, behavior:'smooth'});
+      alert('Mode EDIT: Bab '+m.chapter+' - '+m.title);
+    };
+    window.hapusV2Sync=async function(id){
+      if(!confirm('Hapus? Siswa juga langsung kehapus.')) return;
+      window.dbV2.list=window.dbV2.list.filter(function(m){return m.id!=id}); saveLocal();
+      var sb=getSB(); if(sb) await sb.from('materials_v2').delete().eq('id', id);
+      renderV2();
+    };
+    window.renderV2Siswa=function(){
+      var area=document.getElementById('v2_siswa_area');
+      if(!area){ area=document.createElement('div'); area.id='v2_siswa_area'; (document.querySelector('main')||document.body).prepend(area); }
+      var list=window.dbV2.list||[];
+      if(!list.length){ area.innerHTML=''; return; }
+      area.innerHTML='<div style="padding:12px"><h3 style="margin:8px 0">📚 Materi Pelajaran</h3>'+list.map(function(m){
+        return '<div style="background:#fff;border-radius:14px;padding:14px;margin-bottom:12px;box-shadow:0 2px 8px rgba(0,0,0,.05)"><b>Kelas '+m.kelas+' • Sem '+m.semester+' • Bab '+m.chapter+': '+m.title+'</b><div style="font-size:13px;color:#475569;margin:6px 0">'+(m.desc||'')+'</div>'+(m.image?'<img src="'+m.image+'" style="width:100%;border-radius:10px">':'')+renderVideo(m.video)+renderFolder(m.folder)+'<div>'+renderPdfs(m.pdfs)+'</div></div>';
+      }).join('')+'</div>';
+    };
+    window.loadV2Server=async function(){
+      var sb=getSB(); if(!sb) return;
+      var r=await sb.from('materials_v2').select('*').order('kelas').order('semester').order('chapter');
+      if(r.data){
+        window.dbV2.list=r.data.map(function(x){ return {id:String(x.id), kelas:String(x.kelas), semester:String(x.semester), chapter:Number(x.chapter), title:x.title||'', desc:x.description||'', video:x.video||'', image:x.image||'', pdfs:x.pdfs||[], folder:x.folder||''}; });
+        saveLocal(); renderV2(); renderV2Siswa();
+      }
+    };
+    window.loadV2Server();
+    setInterval(window.loadV2Server, 15000);
+    console.log('FIX FINAL V2 LENGKAP AKTIF');
+  }, 800);
 })();
 </script>
 </body>
