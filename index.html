@@ -9069,5 +9069,32 @@ bersihDobek();
   if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',start); else start();
 })();
 </script>
+<script>
+// ===== SAPU BERSIH SEMUA MATERI DEFAULT - TINGGAL PAIBP DOANG =====
+(function(){
+  function sapuBersih(){
+    try{
+      var mats = (window.db && window.db.materials) || [];
+      if(!mats.length) return;
+      // CUMA PERTAHANIN YANG ADA [PAIBP]
+      // Sisanya (default Kelas 7,8,9 semua) DIBUANG
+      var sisa = mats.filter(function(m){
+        return String(m.desc||'').indexOf('[PAIBP]') > -1;
+      });
+      if(sisa.length !== mats.length){
+        window.db.materials = sisa;
+        if(typeof saveDB==='function') saveDB();
+        if(typeof loadAll==='function') loadAll();
+        // Paksa render ulang biar langsung hilang di layar
+        if(typeof renderLessons==='function') renderLessons();
+      }
+    }catch(e){}
+  }
+  // Jalan terus tiap 1 detik biar default ga sempet muncul
+  setInterval(sapuBersih, 1000);
+  setTimeout(sapuBersih, 500);
+  setTimeout(sapuBersih, 2000);
+})();
+</script>
 </body>
 </html>
