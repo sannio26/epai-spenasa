@@ -9447,5 +9447,87 @@ else setTimeout(jalan,1500);
   console.log('FIX 2 MATERI EDIT HAPUS AKTIF');
 })();
 </script>
+<script>
+// FIX 3 - BUNUH MATERI DEFAULT + HAPUS NYATA
+(function(){
+  // 1. Ingat ID yang udah dihapus, simpan di HP biar ga balik lagi
+  var DELETED = [];
+  try{ DELETED = JSON.parse(localStorage.getItem('deletedMaterials')||'[]'); }catch(e){ DELETED=[]; }
+  function saveDeleted(){ try{ localStorage.setItem('deletedMaterials', JSON.stringify(DELETED)); }catch(e){} }
+  function kunci(m){
+    return (m.id||'') + '|' + m.kelas + '|' + m.semester + '|' + m.chapter + '|' + (m.title||'').slice(0,20);
+  }
+  function isDeleted(m){ return DELETED.indexOf(kunci(m))>=0; }
+
+  // 2. Bersihin materi default yang udah dihapus, tiap 1 detik
+  setInterval(function(){
+    try{
+      if(!window.db || !window.db.materials) return;
+      var awal = window.db.materials.length;
+      window.db.materials = window.db.materials.filter(function(m){ return !isDeleted(m); });
+      if(window.db.materials.length !== awal){
+        if(typeof saveDB==='function') saveDB();
+        if(typeof renderMaterialAdmin==='function') renderMaterialAdmin();
+        if(typeof renderLessons==='function') renderLessons();
+      }
+    }catch(e){}
+  }, 1000);
+
+  // 3. TIMPA SEMUA NAMA FUNGSI HAPUS YANG MUNGKIN DIPAKE TOMBOL
+  async function hapusBeneran(mid,k,s,c){
+    var L = (window.db&&window.db.materials)||[];
+    var f = null;
+    for(var i=0;i<L.length;i++){ if(mid && String(L[i].id||'')===String(mid)) f=L[i]; }
+    if(!f) for(var j=0;j<L.length;j++){ if(Number(L[j].kelas)===Number(k)&&Number(L[j].semester)===Number(s)&&Number(L[j].chapter)===Number(c)) f=L[j]; }
+    if(!f){ alert('Materi tidak ditemukan'); return; }
+    if(!confirm('Hapus materi ini? Ga bakal balik lagi.')) return;
+    DELETED.push(kunci(f)); saveDeleted();
+    try{ if(window.sb && f.id) await window.sb.from('materials').delete().eq('id', f.id); }catch(e){}
+    try{ if(window.sb) await window.sb.from('materials').delete().match({kelas:f.kelas, semester:f.semester, chapter:f.chapter}); }catch(e){}
+    window.db.materials = window.db.materials.filter(function(m){ return m!==f; });
+    try{ if(typeof saveDB==='function') saveDB(); }catch(e){}
+    try{ if(typeof renderMaterialAdmin==='function') renderMaterialAdmin(); }catch(e){}
+    try{ if(typeof renderLessons==='function') renderLessons(); }catch(e){}
+    alert('BERES! Udah kehapus permanen, ga bakal balik lagi.');
+  }
+  // Timpa semua varian nama biar tombol apapun kepanggil
+  window.deleteMaterialById = hapusBeneran;
+  window.deleteMaterial = hapusBeneran;
+  window.hapusMateri = hapusBeneran;
+  window.removeMaterial = hapusBeneran;
+  window.delMaterial = hapusBeneran;
+
+  // 4. TIMPA EDIT JUGA SEMUA VARIAN
+  function editBeneran(mid,k,s,c){
+    var L = (window.db&&window.db.materials)||[];
+    var f = null;
+    for(var i=0;i<L.length;i++){ if(mid && String(L[i].id||'')===String(mid)) f=L[i]; }
+    if(!f) for(var j=0;j<L.length;j++){ if(Number(L[j].kelas)===Number(k)&&Number(L[j].semester)===Number(s)&&Number(L[j].chapter)===Number(c)) f=L[j]; }
+    if(!f){ alert('Materi tidak ditemukan'); return; }
+    if(!f.id){ f.id='m_'+f.kelas+'_'+f.semester+'_'+f.chapter; }
+    window.editingMid = f.id;
+    window.editingMaterialId = f.id;
+    window.editId = f.id;
+    try{
+      document.getElementById('matClass').value=f.kelas;
+      document.getElementById('matSemester').value=f.semester;
+      document.getElementById('matChapter').value=f.chapter;
+      document.getElementById('matTitle').value=f.title||'';
+      document.getElementById('matDesc').value=f.desc||'';
+      document.getElementById('matVideo').value=f.video||'';
+      var u=document.getElementById('matUrl'); if(u) u.value=f.url||'';
+      var btn=document.getElementById('saveMaterialBtn'); if(btn) btn.textContent='Update Materi';
+      var cancel=document.getElementById('cancelMaterialEditBtn'); if(cancel) cancel.classList.remove('hidden');
+      window.scrollTo(0,0);
+    }catch(e){}
+    alert('Mode Edit - ubah lalu klik Update Materi.');
+  }
+  window.editMaterialById = editBeneran;
+  window.editMaterial = editBeneran;
+  window.editMateri = editBeneran;
+
+  console.log('FIX 3 MATERI DEFAULT MATI - AKTIF');
+})();
+</script>
 </body>
 </html>
