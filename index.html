@@ -9397,5 +9397,55 @@ else setTimeout(jalan,1500);
   console.log('FIX 1 RUNNING TEXT AKTIF');
 })();
 </script>
+<script>
+// FIX 2 - MATERI EDIT & HAPUS BENERAN KE SERVER
+(function(){
+  function cari(mid,k,s,c){
+    var L=(window.db&&window.db.materials)||[];
+    for(var i=0;i<L.length;i++){ if(mid && String(L[i].id||L[i]._mid)===String(mid)) return L[i]; }
+    for(var j=0;j<L.length;j++){ if(Number(L[j].kelas)===Number(k)&&Number(L[j].semester)===Number(s)&&Number(L[j].chapter)===Number(c)) return L[j]; }
+    return null;
+  }
+  // TIMPA HAPUS - hapus di server dulu, baru di HP
+  window.deleteMaterialById = async function(mid,k,s,c){
+    if(!confirm('Hapus materi ini? Beneran kehapus dari server, ga bakal balik lagi.')) return;
+    var f=cari(mid,k,s,c);
+    if(!f){ alert('Materi tidak ditemukan'); return; }
+    try{
+      if(window.sb && f.id) {
+        var r=await window.sb.from('materials').delete().eq('id', f.id);
+        if(r.error) console.warn('hapus server gagal', r.error);
+      }
+    }catch(e){}
+    try{
+      window.db.materials = window.db.materials.filter(function(m){ return m!==f; });
+      if(typeof saveDB==='function') saveDB();
+      if(typeof renderMaterialAdmin==='function') renderMaterialAdmin();
+      if(typeof renderLessons==='function') renderLessons();
+    }catch(e){}
+    alert('BERES! Materi udah kehapus dari server.');
+  };
+  // TIMPA EDIT - isi form + tandain lagi mode edit biar ga dobel
+  window.editMaterialById = function(mid,k,s,c){
+    var f=cari(mid,k,s,c);
+    if(!f){ alert('Materi tidak ditemukan'); return; }
+    if(!f.id){ f.id='m_'+f.kelas+'_'+f.semester+'_'+f.chapter; f._mid=f.id; }
+    window.editingMid=f.id;
+    try{
+      document.getElementById('matClass').value=f.kelas;
+      document.getElementById('matSemester').value=f.semester;
+      document.getElementById('matChapter').value=f.chapter;
+      document.getElementById('matTitle').value=f.title||'';
+      document.getElementById('matDesc').value=f.desc||'';
+      document.getElementById('matVideo').value=f.video||'';
+      var u=document.getElementById('matUrl'); if(u) u.value=f.url||'';
+      var btn=document.getElementById('saveMaterialBtn'); if(btn) btn.textContent='Update Materi';
+      var cancel=document.getElementById('cancelMaterialEditBtn'); if(cancel) cancel.classList.remove('hidden');
+    }catch(e){}
+    alert('Mode Edit - ubah lalu klik Update Materi. Ga bakal dobel.');
+  };
+  console.log('FIX 2 MATERI EDIT HAPUS AKTIF');
+})();
+</script>
 </body>
 </html>
