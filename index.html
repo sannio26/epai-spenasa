@@ -8903,10 +8903,11 @@ window.downloadMaterialPdf = function(kelas, semester, chapter, mid){
 };
 </script>
 <script>
-// ===== MATERI PAIBP TANPA BAB - SINKRON REALTIME GURU, SISWA & ORANG TUA =====
-window.bersihDobek = function(){};
+// ===== MATERI PAIBP FIXED + SINKRON REALTIME MAKSIMAL =====
+window.bersihDobek = function(){}; // matikan patch lama yang bikin dobel
 
 (function(){
+  'use strict';
   function getMats(){ return (window.db && window.db.materials) || []; }
 
   function bacaExtra(m){
@@ -8915,9 +8916,9 @@ window.bersihDobek = function(){};
       var d = String(m.desc || '');
       var mm = d.match(/\[PAIBP\](.*?)\[\/PAIBP\]/);
       if(mm){
-        var j = JSON.parse(mm);
+        var j = JSON.parse(mm[1]);
         if(j.folder) out.folder = j.folder;
-        if(j.pdfs) out.pdfs = j.pdfs;
+        if(Array.isArray(j.pdfs)) out.pdfs = j.pdfs;
       }
     }catch(e){}
     return out;
@@ -8931,14 +8932,15 @@ window.bersihDobek = function(){};
     var matChap = document.getElementById('matChapter');
     if(matChap){
       matChap.value = '1';
-      if(matChap.parentElement) matChap.parentElement.style.display = 'none';
+      var wrap = matChap.closest('div') || matChap.parentElement;
+      if(wrap) wrap.style.display = 'none';
     }
     var matTitle = document.getElementById('matTitle');
     if(matTitle) matTitle.placeholder = 'Judul Materi PAIBP';
 
     document.querySelectorAll('button').forEach(function(b){
-      var txt = b.textContent.trim();
-      if(txt === 'Materi' || txt === 'Kelola materi'){
+      var txt = (b.textContent || '').trim();
+      if(txt === 'Materi' || txt === 'Kelola materi' || txt === '📚 Materi'){
         b.textContent = '📚 Materi PAIBP';
       }
     });
@@ -8954,18 +8956,19 @@ window.bersihDobek = function(){};
       var inpF = document.createElement('input');
       inpF.id = 'paibp-folder';
       inpF.placeholder = '📁 Link Folder Kisi-kisi Google Drive (opsional)';
-      inpF.style.cssText = 'width:100%;padding:10px;border-radius:10px;border:1px solid #ccc;margin-top:8px;';
+      inpF.style.cssText = 'width:100%;padding:11px;border-radius:10px;border:1px solid #ccd9d2;margin-top:8px;';
       matUrl.parentElement.insertBefore(inpF, matUrl.nextSibling);
 
       var txtP = document.createElement('textarea');
       txtP.id = 'paibp-pdfbanyak';
       txtP.rows = 3;
       txtP.placeholder = '📄 Link PDF Drive tambahan (boleh banyak, 1 link per baris)';
-      txtP.style.cssText = 'width:100%;padding:10px;border-radius:10px;border:1px solid #ccc;margin-top:8px;';
+      txtP.style.cssText = 'width:100%;padding:11px;border-radius:10px;border:1px solid #ccd9d2;margin-top:8px;';
       matUrl.parentElement.insertBefore(txtP, inpF.nextSibling);
     }
   }
 
+  // Override saveMaterial agar selalu pakai marker [PAIBP] dan langsung upsert
   window.saveMaterial = async function(){
     try {
       var matChap = document.getElementById('matChapter');
@@ -8986,7 +8989,7 @@ window.bersihDobek = function(){};
       var kunci = '[PAIBP]' + JSON.stringify({ folder: folder, pdfs: pdfs }) + '[/PAIBP]';
       var cleanDesc = (descEl ? descEl.value : '').replace(/\[PAIBP\].*?\[\/PAIBP\]/g, '').trim();
 
-      var mid = window.editingMid || ('m_' + Date.now() + '_' + Math.random().toString(36).slice(2, 7));
+      var mid = window.editingMid || ('m_' + Date.now() + '_' + Math.random().toString(36).slice(2, 8));
       var item = {
         id: mid,
         _mid: mid,
@@ -8997,9 +9000,9 @@ window.bersihDobek = function(){};
         desc: (cleanDesc + ' ' + kunci).trim(),
         url: (document.getElementById('matUrl').value || '').trim(),
         video: (document.getElementById('matVideo').value || '').trim(),
-        image: (document.getElementById('matImageUrl').value || ''),
-        pdfData: (document.getElementById('matPdfData').value || ''),
-        pdfName: (document.getElementById('matPdfName').value || ''),
+        image: (document.getElementById('matImageUrl') && document.getElementById('matImageUrl').value) || '',
+        pdfData: (document.getElementById('matPdfData') && document.getElementById('matPdfData').value) || '',
+        pdfName: (document.getElementById('matPdfName') && document.getElementById('matPdfName').value) || '',
         createdAt: Date.now()
       };
 
@@ -9012,19 +9015,22 @@ window.bersihDobek = function(){};
           semester: item.semester,
           chapter: 1,
           title: item.title,
-          pdfName: item.pdfName,
+          pdfName: item.pdfName || '',
           data: clean
         };
         var res = await window.sb.from('materials').upsert(row, { onConflict: 'id' });
         if(res.error){
           if(btn){ btn.disabled = false; btn.textContent = 'Simpan materi'; }
-          alert('Gagal simpan ke Supabase: ' + res.error.message);
+          alert('Gagal simpan ke Supabase: ' + (res.error.message || 'unknown'));
           return;
         }
       }
 
       var list = getMats();
-      var idx = list.findIndex(function(m){ return m && (m.id === mid || m._mid === mid); });
+      var idx = -1;
+      for(var i = 0; i < list.length; i++){
+        if(list[i] && (list[i].id === mid || list[i]._mid === mid)){ idx = i; break; }
+      }
       if(idx >= 0) list[idx] = item; else list.push(item);
       window.db.materials = list;
       if(typeof saveDB === 'function') saveDB();
@@ -9033,26 +9039,29 @@ window.bersihDobek = function(){};
       if(fEl) fEl.value = '';
       if(pEl) pEl.value = '';
       if(matChap) matChap.value = '1';
+      window.editingMid = null;
       if(btn){ btn.disabled = false; btn.textContent = 'Simpan materi'; }
 
       renderMaterialAdmin();
       renderLessons();
-      alert('Materi PAIBP berhasil disimpan!');
+      if(typeof showToast === 'function') showToast('Materi PAIBP berhasil disimpan & tersinkron', 'success');
+      else alert('Materi PAIBP berhasil disimpan!');
     } catch(err) {
       var btn2 = document.getElementById('saveMaterialBtn');
       if(btn2){ btn2.disabled = false; btn2.textContent = 'Simpan materi'; }
-      alert('Terjadi kesalahan: ' + err.message);
+      alert('Terjadi kesalahan: ' + (err.message || err));
     }
   };
 
   window.renderMaterialAdmin = function(){
     var el = document.getElementById('materialAdminList');
     if(!el) return;
-    var items = getMats().slice().sort(function(a, b){
+    var items = getMats().filter(function(m){ return String(m.desc||'').indexOf('[PAIBP]') > -1; });
+    items.sort(function(a, b){
       return (a.kelas - b.kelas) || (a.semester - b.semester) || ((b.createdAt || 0) - (a.createdAt || 0));
     });
     if(!items.length){
-      el.innerHTML = '<p class="muted">Belum ada materi PAIBP.</p>';
+      el.innerHTML = '<p class="muted">Belum ada materi PAIBP. Isi form lalu simpan.</p>';
       return;
     }
     var html = '';
@@ -9060,7 +9069,7 @@ window.bersihDobek = function(){};
       var ex = bacaExtra(m);
       var clean = bersihDesc(m);
       var mid = String(m.id || m._mid || '').replace(/'/g, '');
-      html += '<div class="material" style="border-left:4px solid #1e40af;display:block!important">';
+      html += '<div class="material" style="border-left:4px solid #1e40af">';
       html += '<span class="pill">Kelas ' + esc(m.kelas) + ' • Semester ' + esc(m.semester) + '</span>';
       html += '<h3 style="margin:8px 0 4px">' + esc(m.title) + '</h3>';
       if(clean) html += '<p style="white-space:pre-wrap;font-size:13px">' + esc(clean) + '</p>';
@@ -9068,7 +9077,7 @@ window.bersihDobek = function(){};
       if(m.video) html += '<p class="muted">🎥 Video: <a href="' + esc(m.video) + '" target="_blank">' + esc(m.video) + '</a></p>';
       if(ex.folder) html += '<p class="muted">📁 Kisi-kisi: <a href="' + esc(ex.folder) + '" target="_blank">' + esc(ex.folder) + '</a></p>';
       if(m.url) html += '<p class="muted">📄 PDF: <a href="' + esc(m.url) + '" target="_blank">' + esc(m.url) + '</a></p>';
-      if(ex.pdfs && ex.pdfs.length) html += '<p class="muted">📄 ' + ex.pdfs.length + ' Link PDF tambahan terpasang</p>';
+      if(ex.pdfs && ex.pdfs.length) html += '<p class="muted">📄 ' + ex.pdfs.length + ' link PDF tambahan</p>';
       html += '<div class="material-action-row">';
       html += '<button type="button" class="material-edit-btn" onclick="editMaterialById(\'' + mid + '\')">✏️ Edit</button>';
       html += '<button type="button" class="material-delete-btn" onclick="deleteMaterialById(\'' + mid + '\')">🗑️ Hapus</button>';
@@ -9083,7 +9092,7 @@ window.bersihDobek = function(){};
     var kc = document.getElementById('learnClass') ? document.getElementById('learnClass').value : '7';
     var sm = document.getElementById('learnSemester') ? document.getElementById('learnSemester').value : '1';
     var mats = getMats().filter(function(m){
-      return String(m.kelas) === String(kc) && String(m.semester) === String(sm);
+      return String(m.kelas) === String(kc) && String(m.semester) === String(sm) && String(m.desc||'').indexOf('[PAIBP]') > -1;
     });
     mats.sort(function(a, b){ return (b.createdAt || 0) - (a.createdAt || 0); });
 
@@ -9096,10 +9105,10 @@ window.bersihDobek = function(){};
     mats.forEach(function(m){
       var ex = bacaExtra(m);
       var clean = bersihDesc(m);
-      var pdfs = ex.pdfs || [];
+      var pdfs = (ex.pdfs || []).slice();
       if(!pdfs.length && m.url) pdfs = [{ name: 'Buka PDF Materi', url: m.url }];
 
-      html += '<div class="material" style="border-left:4px solid #1e40af;display:block!important">';
+      html += '<div class="material" style="border-left:4px solid #1e40af">';
       html += '<span class="pill">Kelas ' + esc(m.kelas) + ' • Semester ' + esc(m.semester) + '</span>';
       html += '<h3 style="margin:8px 0 6px">' + esc(m.title) + '</h3>';
       if(m.image){
@@ -9114,5 +9123,61 @@ window.bersihDobek = function(){};
       if(ex.folder){
         html += '<p style="margin-top:8px"><a class="btn-link pdf" style="background:#f59e0b!important" href="' + esc(ex.folder) + '" target="_blank" rel="noopener">📁 Buka Folder Kisi-kisi</a></p>';
       }
-      if(m.pdfData || m.pdfName){
-        var pdfLabel = m.pdfName || 'materi.pdf';
+      pdfs.forEach(function(p){
+        var url = typeof p === 'string' ? p : (p.url || '');
+        var nm = typeof p === 'string' ? 'PDF' : (p.name || 'PDF');
+        if(url) html += '<p style="margin-top:6px"><a class="btn-link pdf" href="' + esc(url) + '" target="_blank" rel="noopener">📄 ' + esc(nm) + '</a></p>';
+      });
+      html += '</div>';
+    });
+    list.innerHTML = html;
+  };
+
+  // Saat edit, isi field extra & bersihkan desc
+  var oldEdit = window.editMaterialById;
+  window.editMaterialById = function(mid){
+    if(typeof oldEdit === 'function') oldEdit.apply(this, arguments);
+    setTimeout(function(){
+      var list = getMats();
+      var m = null;
+      for(var i = 0; i < list.length; i++){
+        if(String(list[i].id || list[i]._mid || '') === String(mid)){ m = list[i]; break; }
+      }
+      if(!m) return;
+      var ex = bacaExtra(m);
+      var f = document.getElementById('paibp-folder');
+      var p = document.getElementById('paibp-pdfbanyak');
+      var d = document.getElementById('matDesc');
+      if(f) f.value = ex.folder || '';
+      if(p) p.value = (ex.pdfs || []).map(function(x){ return typeof x === 'string' ? x : (x.url || ''); }).join('\n');
+      if(d) d.value = bersihDesc(m);
+    }, 120);
+  };
+
+  // Bersihkan materi lama (tanpa marker) secara periodik, tanpa loadAll yang bikin race
+  function sapuBersih(){
+    try{
+      var mats = getMats();
+      if(!mats.length) return;
+      var sisa = mats.filter(function(m){ return String(m.desc || '').indexOf('[PAIBP]') > -1; });
+      if(sisa.length !== mats.length){
+        window.db.materials = sisa;
+        if(typeof saveDB === 'function') saveDB();
+        if(typeof renderLessons === 'function') renderLessons();
+        if(typeof renderMaterialAdmin === 'function') renderMaterialAdmin();
+      }
+    }catch(e){}
+  }
+
+  function start(){
+    rapikanFormGuru();
+    sapuBersih();
+  }
+  setInterval(start, 2500);
+  setTimeout(start, 400);
+  if(document.readyState === 'loading') document.addEventListener('DOMContentLoaded', start);
+  else start();
+})();
+</script>
+</body>
+</html>
