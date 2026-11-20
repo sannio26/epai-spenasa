@@ -8978,123 +8978,259 @@ setInterval(bersihDobek, 5000);
 bersihDobek();
 </script>
 <script>
-// ===== HILANGKAN MATERI -> GANTI MATERI PAIBP KOMPLIT + SINKRON SUPABASE =====
+// ===== MATERI PAIBP TANPA BAB - SINKRON REALTIME GURU, SISWA & ORANG TUA =====
 (function(){
   function getMats(){ return (window.db && window.db.materials) || []; }
-  function driveView(u){ if(!u) return ''; var m=String(u).match(/\/d\/([^\/]+)/); return m?'https://drive.google.com/file/d/'+m[1]+'/preview':u; }
-  function driveDl(u){ if(!u) return ''; var m=String(u).match(/\/d\/([^\/]+)/); return m?'https://drive.google.com/uc?export=download&id='+m[1]:u; }
+  function driveView(u){ if(!u) return ''; var m=String(u).match(/\/d\/([^\/]+)/); return m?'https://google.com[1]+'/preview':u; }
+  function driveDl(u){ if(!u) return ''; var m=String(u).match(/\/d\/([^\/]+)/); return m?'https://google.com[1]:u; }
+
   function bacaExtra(m){
     var out={folder:m.folder||'',pdfs:m.pdfs||[]};
-    try{ var d=String(m.desc||''); var mm=d.match(/\[PAIBP\](.*?)\[\/PAIBP\]/); if(mm){ var j=JSON.parse(mm[1]); if(j.folder) out.folder=j.folder; if(j.pdfs) out.pdfs=j.pdfs; } }catch(e){}
-    return out;
-  }
-  function bersihDesc(m){ return String(m.desc||'').replace(/\[PAIBP\].*?\[\/PAIBP\]/,'').trim(); }
-  function gantiMenu(){
-    document.querySelectorAll('button').forEach(function(b){
-      if(b.textContent.trim()==='Materi'){ b.textContent='📚 Materi PAIBP'; b.style.background='#1e40af'; b.style.color='#fff'; b.style.fontWeight='bold'; }
-    });
-    var h=document.querySelector('#materials h2'); if(h) h.textContent='📚 Materi PAIBP';
-    var h2=document.querySelector('#learning h2'); if(h2) h2.textContent='📚 Materi PAIBP';
-  }
-  function pasangGuru(){
-    var matUrl=document.getElementById('matUrl');
-    if(!matUrl || document.getElementById('paibp-folder')) return;
-    var matVideo=document.getElementById('matVideo');
-    if(matVideo) matVideo.placeholder='🎥 Link Video Google Drive - paste link View Drive';
-    matUrl.placeholder='📄 Link PDF Utama (opsional)';
-    var inpF=document.createElement('input');
-    inpF.id='paibp-folder'; inpF.placeholder='📁 Link Folder Kisi-kisi Drive';
-    inpF.style.cssText='width:100%;padding:10px;border-radius:10px;border:1px solid #ccc;margin-top:8px;';
-    matUrl.parentElement.insertBefore(inpF, matUrl.nextSibling);
-    var txtP=document.createElement('textarea');
-    txtP.id='paibp-pdfbanyak'; txtP.rows=4;
-    txtP.placeholder='📄 Link PDF Drive, BOLEH BANYAK - 1 link per baris';
-    txtP.style.cssText='width:100%;padding:10px;border-radius:10px;border:1px solid #ccc;margin-top:8px;';
-    matUrl.parentElement.insertBefore(txtP, inpF.nextSibling);
-  }
-  if(!window._paibpSync){
-    window._paibpSync=true;
-    var oldSave=window.saveMaterial;
-    window.saveMaterial=function(){
-      var f=document.getElementById('paibp-folder');
-      var p=document.getElementById('paibp-pdfbanyak');
-      window._fTemp=f?f.value.trim():'';
-      window._pTemp=p?p.value.split('\n').map(function(s){return s.trim()}).filter(Boolean):[];
-      var r=oldSave?oldSave.apply(this,arguments):null;
-      setTimeout(function(){
-        try{
-          var mats=getMats(); if(!mats.length) return;
-          var t=mats[mats.length-1];
-          t.folder=window._fTemp;
-          t.pdfs=window._pTemp.map(function(u,i){return {name:'PDF '+(i+1), url:u};});
-          var kunci='[PAIBP]'+JSON.stringify({folder:window._fTemp, pdfs:t.pdfs})+'[/PAIBP]';
-          t.desc=(bersihDesc(t)+' '+kunci).trim();
-          if(typeof saveDB==='function') saveDB();
-          if(typeof loadAll==='function') loadAll();
-        }catch(e){}
-      },900);
-      return r;
-    };
-  }
-  var oldRender=window.renderLessons;
-  window.renderLessons=function(){
-    if(oldRender) oldRender.apply(this,arguments);
-    var list=document.getElementById('lessonList'); if(!list) return;
-    var kc=document.getElementById('learnClass')?document.getElementById('learnClass').value:'7';
-    var sm=document.getElementById('learnSemester')?document.getElementById('learnSemester').value:'1';
-    var mats=getMats().filter(function(m){return String(m.kelas)===String(kc)&&String(m.semester)===String(sm);});
-    mats.sort(function(a,b){return (a.chapter||0)-(b.chapter||0);});
-    if(!mats.length) return;
-    var html='';
-    mats.forEach(function(m){
-      var ex=bacaExtra(m);
-      var pdfs=ex.pdfs||[];
-      if(!pdfs.length && m.url) pdfs=[{name:'PDF Materi', url:m.url}];
-      html+='<div style="border:1px solid #e5e7eb;border-radius:14px;padding:14px;margin:10px 0;background:#fff;">';
-      html+='<b>📚 Bab '+(m.chapter||'')+' - '+(m.title||m.judul||'Materi PAIBP')+'</b>';
-      if(bersihDesc(m)) html+='<p style="font-size:13px;color:#555;">'+bersihDesc(m)+'</p>';
-      if(m.video) html+='<a href="'+driveView(m.video)+'" target="_blank" style="display:block;background:#2563eb;color:#fff;text-align:center;padding:10px;border-radius:10px;font-weight:bold;text-decoration:none;margin:8px 0;">▶️ Tonton Video</a>';
-      if(ex.folder) html+='<a href="'+ex.folder+'" target="_blank" style="display:block;background:#f59e0b;color:#fff;text-align:center;padding:10px;border-radius:10px;font-weight:bold;text-decoration:none;margin:8px 0;">📁 Buka Folder Kisi-kisi</a>';
-      pdfs.forEach(function(p,i){
-        var url=typeof p==='string'?p:p.url;
-        var nm=typeof p==='string'?'PDF '+(i+1):(p.name||'PDF '+(i+1));
-        html+='<a href="'+driveDl(url)+'" target="_blank" style="display:block;background:#16a34a;color:#fff;text-align:center;padding:10px;border-radius:10px;font-weight:bold;text-decoration:none;margin:8px 0;">📄 '+nm+' - Buka / Download PDF</a>';
-      });
-      html+='</div>';
-    });
-    list.innerHTML=html;
-  };
-  function start(){ gantiMenu(); pasangGuru(); }
-  setInterval(start,2000);
-  if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',start); else start();
-})();
-</script>
-<script>
-// ===== SAPU BERSIH SEMUA MATERI DEFAULT - TINGGAL PAIBP DOANG =====
-(function(){
-  function sapuBersih(){
     try{
-      var mats = (window.db && window.db.materials) || [];
-      if(!mats.length) return;
-      // CUMA PERTAHANIN YANG ADA [PAIBP]
-      // Sisanya (default Kelas 7,8,9 semua) DIBUANG
-      var sisa = mats.filter(function(m){
-        return String(m.desc||'').indexOf('[PAIBP]') > -1;
-      });
-      if(sisa.length !== mats.length){
-        window.db.materials = sisa;
-        if(typeof saveDB==='function') saveDB();
-        if(typeof loadAll==='function') loadAll();
-        // Paksa render ulang biar langsung hilang di layar
-        if(typeof renderLessons==='function') renderLessons();
+      var d=String(m.desc||'');
+      var mm=d.match(/\[PAIBP\](.*?)\[\/PAIBP\]/);
+      if(mm){
+        var j=JSON.parse(mm[1]);
+        if(j.folder) out.folder=j.folder;
+        if(j.pdfs) out.pdfs=j.pdfs;
       }
     }catch(e){}
+    return out;
   }
-  // Jalan terus tiap 1 detik biar default ga sempet muncul
-  setInterval(sapuBersih, 1000);
-  setTimeout(sapuBersih, 500);
-  setTimeout(sapuBersih, 2000);
+
+  function bersihDesc(m){
+    return String(m.desc||'').replace(/\[PAIBP\].*?\[\/PAIBP\]/g,'').trim();
+  }
+
+  // 1. Sembunyikan kolom input BAB di form Guru secara otomatis
+  function rapikanFormGuru(){
+    var matChap = document.getElementById('matChapter');
+    if(matChap){
+      matChap.value = '1'; // Nilai default di belakang layar agar Supabase tidak menolak
+      if(matChap.parentElement) matChap.parentElement.style.display = 'none';
+    }
+    var matTitle = document.getElementById('matTitle');
+    if(matTitle) matTitle.placeholder = 'Judul Materi PAIBP';
+
+    // Ubah teks tombol menu menjadi Materi PAIBP
+    document.querySelectorAll('button').forEach(function(b){
+      var txt = b.textContent.trim();
+      if(txt==='Materi' || txt==='Kelola materi'){
+        b.textContent='📚 Materi PAIBP';
+      }
+    });
+    var h1=document.querySelector('#materials h2'); if(h1) h1.textContent='📚 Materi PAIBP';
+    var h2=document.querySelector('#learning h2'); if(h2) h2.textContent='📚 Materi PAIBP';
+
+    // Pasang input Folder Kisi-kisi & Banyak Link PDF jika belum ada
+    var matUrl=document.getElementById('matUrl');
+    if(matUrl && !document.getElementById('paibp-folder')){
+      var matVideo=document.getElementById('matVideo');
+      if(matVideo) matVideo.placeholder='🎥 Link Video YouTube / Google Drive';
+      matUrl.placeholder='📄 Link PDF Utama (opsional)';
+
+      var inpF=document.createElement('input');
+      inpF.id='paibp-folder';
+      inpF.placeholder='📁 Link Folder Kisi-kisi Google Drive (opsional)';
+      inpF.style.cssText='width:100%;padding:10px;border-radius:10px;border:1px solid #ccc;margin-top:8px;';
+      matUrl.parentElement.insertBefore(inpF, matUrl.nextSibling);
+
+      var txtP=document.createElement('textarea');
+      txtP.id='paibp-pdfbanyak';
+      txtP.rows=3;
+      txtP.placeholder='📄 Link PDF Drive tambahan (boleh banyak, 1 link per baris)';
+      txtP.style.cssText='width:100%;padding:10px;border-radius:10px;border:1px solid #ccc;margin-top:8px;';
+      matUrl.parentElement.insertBefore(txtP, inpF.nextSibling);
+    }
+  }
+
+  // 2. Override Simpan Materi (Tanpa perlu isi Bab & langsung sinkron Supabase)
+  window.saveMaterial = async function(){
+    var matChap = document.getElementById('matChapter');
+    if(matChap && !matChap.value) matChap.value = '1';
+
+    var title = (document.getElementById('matTitle').value || '').trim();
+    if(!title){ alert('Judul materi wajib diisi!'); return; }
+
+    var fEl=document.getElementById('paibp-folder');
+    var pEl=document.getElementById('paibp-pdfbanyak');
+    var descEl=document.getElementById('matDesc');
+    var folder=fEl?fEl.value.trim():'';
+    var pdfLines=pEl?pEl.value.split('\n').map(function(s){return s.trim()}).filter(Boolean):[];
+    var pdfs=pdfLines.map(function(u,i){return {name:'PDF '+(i+1), url:u};});
+    var kunci='[PAIBP]'+JSON.stringify({folder:folder, pdfs:pdfs})+'[/PAIBP]';
+    var cleanDesc = (descEl ? descEl.value : '').replace(/\[PAIBP\].*?\[\/PAIBP\]/g,'').trim();
+
+    var mid = window.editingMid || ('m_' + Date.now() + '_' + Math.random().toString(36).slice(2, 7));
+    var item = {
+      id: mid,
+      _mid: mid,
+      kelas: Number(document.getElementById('matClass').value || 7),
+      semester: Number(document.getElementById('matSemester').value || 1),
+      chapter: 1,
+      title: title,
+      desc: (cleanDesc + ' ' + kunci).trim(),
+      url: (document.getElementById('matUrl').value || '').trim(),
+      video: (document.getElementById('matVideo').value || '').trim(),
+      image: (document.getElementById('matImageUrl').value || ''),
+      pdfData: (document.getElementById('matPdfData').value || ''),
+      pdfName: (document.getElementById('matPdfName').value || ''),
+      createdAt: Date.now()
+    };
+
+    if(window.sb && navigator.onLine){
+      var clean = Object.assign({}, item);
+      delete clean.pdfData;
+      var row = {
+        id: mid,
+        kelas: item.kelas,
+        semester: item.semester,
+        chapter: 1,
+        title: item.title,
+        pdfName: item.pdfName,
+        data: clean
+      };
+      var res = await window.sb.from('materials').upsert(row, { onConflict: 'id' });
+      if(res.error){
+        alert('Gagal simpan ke Supabase: ' + res.error.message);
+        return;
+      }
+    }
+
+    var list = getMats();
+    var idx = list.findIndex(function(m){ return m && (m.id === mid || m._mid === mid); });
+    if(idx >= 0) list[idx] = item; else list.push(item);
+    window.db.materials = list;
+    if(typeof saveDB === 'function') saveDB();
+
+    if(typeof resetMaterialForm === 'function') resetMaterialForm();
+    if(fEl) fEl.value = '';
+    if(pEl) pEl.value = '';
+    if(matChap) matChap.value = '1';
+
+    renderMaterialAdmin();
+    renderLessons();
+    if(typeof showToast === 'function') showToast('Materi PAIBP berhasil disimpan & tersinkron!', 'success');
+  };
+
+  // 3. Tampilan Daftar Materi di Halaman Guru (Tanpa tulisan Bab)
+  window.renderMaterialAdmin = function(){
+    var el = document.getElementById('materialAdminList');
+    if(!el) return;
+    var items = getMats().slice().sort(function(a,b){
+      return (a.kelas - b.kelas) || (a.semester - b.semester) || ((b.createdAt||0) - (a.createdAt||0));
+    });
+    if(!items.length){
+      el.innerHTML = '<p class="muted">Belum ada materi PAIBP.</p>';
+      return;
+    }
+    var html = '';
+    items.forEach(function(m){
+      var ex = bacaExtra(m);
+      var clean = bersihDesc(m);
+      var mid = String(m.id || m._mid || '').replace(/'/g, '');
+      html += '<div class="material" style="border-left:4px solid #1e40af">';
+      html += '<span class="pill">Kelas ' + esc(m.kelas) + ' • Semester ' + esc(m.semester) + '</span>';
+      html += '<h3 style="margin:8px 0 4px">' + esc(m.title) + '</h3>';
+      if(clean) html += '<p style="white-space:pre-wrap;font-size:13px">' + esc(clean) + '</p>';
+      if(m.image) html += '<img class="material-img-thumb" src="' + m.image + '" alt="" onclick="openImgLightbox(this.src)">';
+      if(m.video) html += '<p class="muted">🎥 Video: <a href="' + esc(m.video) + '" target="_blank">' + esc(m.video) + '</a></p>';
+      if(ex.folder) html += '<p class="muted">📁 Kisi-kisi: <a href="' + esc(ex.folder) + '" target="_blank">' + esc(ex.folder) + '</a></p>';
+      if(m.url) html += '<p class="muted">📄 PDF: <a href="' + esc(m.url) + '" target="_blank">' + esc(m.url) + '</a></p>';
+      if(ex.pdfs && ex.pdfs.length) html += '<p class="muted">📄 ' + ex.pdfs.length + ' Link PDF tambahan terpasang</p>';
+      html += '<div class="material-action-row">';
+      html += '<button type="button" class="material-edit-btn" onclick="editMaterialById(\'' + mid + '\')">✏️ Edit</button>';
+      html += '<button type="button" class="material-delete-btn" onclick="deleteMaterialById(\'' + mid + '\')">🗑️ Hapus</button>';
+      html += '</div></div>';
+    });
+    el.innerHTML = html;
+  };
+
+  // 4. Tampilan Materi di Halaman Siswa & Orang Tua (Tanpa tulisan Bab, Sinkron Real-time)
+  window.renderLessons = function(){
+    var list = document.getElementById('lessonList');
+    if(!list) return;
+    var kc = document.getElementById('learnClass') ? document.getElementById('learnClass').value : '7';
+    var sm = document.getElementById('learnSemester') ? document.getElementById('learnSemester').value : '1';
+    var mats = getMats().filter(function(m){
+      return String(m.kelas) === String(kc) && String(m.semester) === String(sm);
+    });
+    mats.sort(function(a,b){ return (b.createdAt||0) - (a.createdAt||0); });
+
+    if(!mats.length){
+      list.innerHTML = '<p class="muted">Belum ada materi PAIBP untuk Kelas ' + esc(kc) + ' Semester ' + esc(sm) + '.</p>';
+      return;
+    }
+
+    var html = '';
+    mats.forEach(function(m){
+      var ex = bacaExtra(m);
+      var clean = bersihDesc(m);
+      var pdfs = ex.pdfs || [];
+      if(!pdfs.length && m.url) pdfs = [{name:'Buka PDF Materi', url:m.url}];
+
+      html += '<div class="material" style="border-left:4px solid #1e40af">';
+      html += '<span class="pill">Kelas ' + esc(m.kelas) + ' • Semester ' + esc(m.semester) + '</span>';
+      html += '<h3 style="margin:8px 0 6px">' + esc(m.title) + '</h3>';
+      if(m.image){
+        html += '<img class="material-img" src="' + m.image + '" alt="' + esc(m.title) + '" loading="lazy" onclick="openImgLightbox(this.src)">';
+      }
+      if(clean){
+        html += '<div style="white-space:pre-wrap;margin-bottom:8px">' + esc(clean) + '</div>';
+      }
+      if(m.video){
+        html += '<p style="margin-top:8px"><button type="button" class="btn-link video" data-video="' + esc(m.video) + '" data-title="' + esc(m.title) + '">▶️ Tonton Video Pembelajaran</button></p>';
+      }
+      if(ex.folder){
+        html += '<p style="margin-top:8px"><a class="btn-link pdf" style="background:#f59e0b!important" href="' + esc(ex.folder) + '" target="_blank" rel="noopener">📁 Buka Folder Kisi-kisi</a></p>';
+      }
+            if(m.pdfData || m.pdfName){
+        var pdfLabel = m.pdfName || 'materi.pdf';
+        html += '<p style="margin-top:8px"><button type="button" class="btn-link pdf" onclick="downloadMaterialPdf(' + m.kelas + ',' + m.semester + ',1,\'' + (m.id || m._mid || '') + '\')">⬇️ Download PDF - ' + esc(pdfLabel) + '</button></p>';
+      }
+      pdfs.forEach(function(p,i){
+        var url = typeof p==='string' ? p : p.url;
+        var nm = typeof p==='string' ? ('Buka PDF '+(i+1)) : (p.name || 'Buka PDF '+(i+1));
+        if(url) html += '<p style="margin-top:8px"><a class="btn-link pdf" href="' + esc(driveDl(url)) + '" target="_blank" rel="noopener">📄 ' + esc(nm) + '</a></p>';
+      });
+      html += '</div>';
+    });
+    list.innerHTML = html;
+  };
+
+  // 5. Pastikan Edit mengisi ulang field tambahan dengan bersih
+  var origEdit = window.editMaterialById;
+  window.editMaterialById = function(mid){
+    if(origEdit) origEdit.apply(this, arguments);
+    setTimeout(function(){
+      var m = getMats().find(function(x){ return String(x.id||x._mid||'') === String(mid); });
+      if(!m) return;
+      var ex = bacaExtra(m);
+      var f = document.getElementById('paibp-folder');
+      var p = document.getElementById('paibp-pdfbanyak');
+      var d = document.getElementById('matDesc');
+      if(f) f.value = ex.folder || '';
+      if(p) p.value = (ex.pdfs||[]).map(function(x){ return typeof x==='string'?x:(x.url||''); }).join('\n');
+      if(d) d.value = bersihDesc(m);
+    }, 100);
+  };
+
+  // 6. Auto-refresh tampilan materi tiap kali Supabase menerima data baru
+  var origLoadAll = window.loadAll;
+  if(typeof origLoadAll === 'function'){
+    window.loadAll = async function(){
+      await origLoadAll.apply(this, arguments);
+      renderLessons();
+      renderMaterialAdmin();
+    };
+  }
+
+  setInterval(rapikanFormGuru, 1500);
+  if(document.readyState === 'loading') document.addEventListener('DOMContentLoaded', rapikanFormGuru);
+  else rapikanFormGuru();
 })();
 </script>
 </body>
 </html>
+
+      
