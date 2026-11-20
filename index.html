@@ -8903,148 +8903,79 @@ window.downloadMaterialPdf = function(kelas, semester, chapter, mid){
 };
 </script>
 <script>
-// PATCH 3 - DEDUPE + HAPUS TUNTAS - 18 Nov
-function bersihDobek(){
-  try{
-    Object.keys(localStorage).forEach(function(k){
-      if(/materi|material/i.test(k)){
-        try{
-          var a=JSON.parse(localStorage.getItem(k));
-          if(Array.isArray(a)){
-            var seen={}; var b=[];
-            a.forEach(function(it){
-              var key=((it.title||it.judul||it.nama||'')+'|'+(it.kelas||'')+'|'+(it.semester||'')+'|'+(it.bab||it.chapter||'')).toLowerCase().trim();
-              if(!seen[key]){ seen[key]=1; b.push(it); }
-            });
-            if(b.length!==a.length) localStorage.setItem(k, JSON.stringify(b));
-          }
-        }catch(e){}
-      }
-    });
-  }catch(e){}
-  // Bersihin tampilan dobel
-  var seen2={};
-  document.querySelectorAll('div').forEach(function(el){
-    var t=el.innerText||'';
-    if(t.indexOf('Kelas 7')>-1 && t.indexOf('Bab')>-1 && t.length<500){
-      var key=t.trim().slice(0,120);
-      if(seen2[key]){ el.style.display='none'; }
-      else seen2[key]=1;
-    }
-  });
-}
-setInterval(bersihDobek, 2000);
-bersihDobek();
-</script>
-<script>
-// PATCH 4 - DEDUPE SISWA + ANTI KEDIP - 18 Nov
-bersihDobek = function(){
-  try{
-    Object.keys(localStorage).forEach(function(k){
-      if(/materi|material/i.test(k)){
-        try{
-          var a=JSON.parse(localStorage.getItem(k));
-          if(Array.isArray(a)){
-            var seen={}; var b=[];
-            a.forEach(function(it){
-              var key=((it.title||it.judul||it.nama||'')+'|'+(it.kelas||'')+'|'+(it.semester||'')+'|'+(it.bab||it.chapter||'')).toLowerCase().trim();
-              if(!seen[key]){ seen[key]=1; b.push(it); }
-            });
-            if(b.length!==a.length) localStorage.setItem(k, JSON.stringify(b));
-          }
-        }catch(e){}
-      }
-    });
-  }catch(e){}
-  // Cari kartu Siswa: yang ada tulisan "Bab 3" di dalamnya
-  var seen2={};
-  document.querySelectorAll('div').forEach(function(el){
-    var t=(el.innerText||'').trim();
-    // Ciri kartu siswa: pendek, mulai dari Bab, ada judulnya
-    if(t.indexOf('Bab ')==0 && t.length>10 && t.length<400){
-      var key=t.slice(0,150);
-      if(seen2[key]){ el.style.display='none'; }
-      else seen2[key]=1;
-    }
-    // Ciri kartu guru tetap jalan
-    if(t.indexOf('Kelas')>-1 && t.indexOf('Bab')>-1 && t.length<500 && t.length>20){
-      var key2=t.slice(0,120);
-      if(seen2[key2]){ el.style.display='none'; }
-      else seen2[key2]=1;
-    }
-  });
-};
-setInterval(bersihDobek, 5000);
-bersihDobek();
-</script>
-<script>
 // ===== MATERI PAIBP TANPA BAB - SINKRON REALTIME GURU, SISWA & ORANG TUA =====
+window.bersihDobek = function(){};
+
 (function(){
-  function getMats(){ return (window.db && window.db.materials) || []; }
-  function driveView(u){ if(!u) return ''; var m=String(u).match(/\/d\/([^\/]+)/); return m?'https://google.com[1]+'/preview':u; }
-  function driveDl(u){ if(!u) return ''; var m=String(u).match(/\/d\/([^\/]+)/); return m?'https://google.com[1]:u; }
+      function driveView(u){
+    if(!u) return '';
+    var m = String(u).match(/\/d\/([^\/]+)/);
+    return m ? ('https://drive.' + '://google.com' + m + '/preview') : u;
+}
+  function driveDl(u){
+    if(!u) return '';
+    var m = String(u).match(/\/d\/([^\/]+)/);
+    return m ? ('https://drive.' + '://google.com' + m) : u;
+ }
+
 
   function bacaExtra(m){
-    var out={folder:m.folder||'',pdfs:m.pdfs||[]};
+    var out = { folder: m.folder || '', pdfs: m.pdfs || [] };
     try{
-      var d=String(m.desc||'');
-      var mm=d.match(/\[PAIBP\](.*?)\[\/PAIBP\]/);
+      var d = String(m.desc || '');
+      var mm = d.match(/\[PAIBP\](.*?)\[\/PAIBP\]/);
       if(mm){
-        var j=JSON.parse(mm[1]);
-        if(j.folder) out.folder=j.folder;
-        if(j.pdfs) out.pdfs=j.pdfs;
+        var j = JSON.parse(mm[1]);
+        if(j.folder) out.folder = j.folder;
+        if(j.pdfs) out.pdfs = j.pdfs;
       }
     }catch(e){}
     return out;
   }
 
   function bersihDesc(m){
-    return String(m.desc||'').replace(/\[PAIBP\].*?\[\/PAIBP\]/g,'').trim();
+    return String(m.desc || '').replace(/\[PAIBP\].*?\[\/PAIBP\]/g, '').trim();
   }
 
-  // 1. Sembunyikan kolom input BAB di form Guru secara otomatis
   function rapikanFormGuru(){
     var matChap = document.getElementById('matChapter');
     if(matChap){
-      matChap.value = '1'; // Nilai default di belakang layar agar Supabase tidak menolak
+      matChap.value = '1';
       if(matChap.parentElement) matChap.parentElement.style.display = 'none';
     }
     var matTitle = document.getElementById('matTitle');
     if(matTitle) matTitle.placeholder = 'Judul Materi PAIBP';
 
-    // Ubah teks tombol menu menjadi Materi PAIBP
     document.querySelectorAll('button').forEach(function(b){
       var txt = b.textContent.trim();
-      if(txt==='Materi' || txt==='Kelola materi'){
-        b.textContent='📚 Materi PAIBP';
+      if(txt === 'Materi' || txt === 'Kelola materi'){
+        b.textContent = '📚 Materi PAIBP';
       }
     });
-    var h1=document.querySelector('#materials h2'); if(h1) h1.textContent='📚 Materi PAIBP';
-    var h2=document.querySelector('#learning h2'); if(h2) h2.textContent='📚 Materi PAIBP';
+    var h1 = document.querySelector('#materials h2'); if(h1) h1.textContent = '📚 Materi PAIBP';
+    var h2 = document.querySelector('#learning h2'); if(h2) h2.textContent = '📚 Materi PAIBP';
 
-    // Pasang input Folder Kisi-kisi & Banyak Link PDF jika belum ada
-    var matUrl=document.getElementById('matUrl');
+    var matUrl = document.getElementById('matUrl');
     if(matUrl && !document.getElementById('paibp-folder')){
-      var matVideo=document.getElementById('matVideo');
-      if(matVideo) matVideo.placeholder='🎥 Link Video YouTube / Google Drive';
-      matUrl.placeholder='📄 Link PDF Utama (opsional)';
+      var matVideo = document.getElementById('matVideo');
+      if(matVideo) matVideo.placeholder = '🎥 Link Video YouTube / Google Drive';
+      matUrl.placeholder = '📄 Link PDF Utama (opsional)';
 
-      var inpF=document.createElement('input');
-      inpF.id='paibp-folder';
-      inpF.placeholder='📁 Link Folder Kisi-kisi Google Drive (opsional)';
-      inpF.style.cssText='width:100%;padding:10px;border-radius:10px;border:1px solid #ccc;margin-top:8px;';
+      var inpF = document.createElement('input');
+      inpF.id = 'paibp-folder';
+      inpF.placeholder = '📁 Link Folder Kisi-kisi Google Drive (opsional)';
+      inpF.style.cssText = 'width:100%;padding:10px;border-radius:10px;border:1px solid #ccc;margin-top:8px;';
       matUrl.parentElement.insertBefore(inpF, matUrl.nextSibling);
 
-      var txtP=document.createElement('textarea');
-      txtP.id='paibp-pdfbanyak';
-      txtP.rows=3;
-      txtP.placeholder='📄 Link PDF Drive tambahan (boleh banyak, 1 link per baris)';
-      txtP.style.cssText='width:100%;padding:10px;border-radius:10px;border:1px solid #ccc;margin-top:8px;';
+      var txtP = document.createElement('textarea');
+      txtP.id = 'paibp-pdfbanyak';
+      txtP.rows = 3;
+      txtP.placeholder = '📄 Link PDF Drive tambahan (boleh banyak, 1 link per baris)';
+      txtP.style.cssText = 'width:100%;padding:10px;border-radius:10px;border:1px solid #ccc;margin-top:8px;';
       matUrl.parentElement.insertBefore(txtP, inpF.nextSibling);
     }
   }
 
-  // 2. Override Simpan Materi (Tanpa perlu isi Bab & langsung sinkron Supabase)
   window.saveMaterial = async function(){
     var matChap = document.getElementById('matChapter');
     if(matChap && !matChap.value) matChap.value = '1';
@@ -9052,14 +8983,14 @@ bersihDobek();
     var title = (document.getElementById('matTitle').value || '').trim();
     if(!title){ alert('Judul materi wajib diisi!'); return; }
 
-    var fEl=document.getElementById('paibp-folder');
-    var pEl=document.getElementById('paibp-pdfbanyak');
-    var descEl=document.getElementById('matDesc');
-    var folder=fEl?fEl.value.trim():'';
-    var pdfLines=pEl?pEl.value.split('\n').map(function(s){return s.trim()}).filter(Boolean):[];
-    var pdfs=pdfLines.map(function(u,i){return {name:'PDF '+(i+1), url:u};});
-    var kunci='[PAIBP]'+JSON.stringify({folder:folder, pdfs:pdfs})+'[/PAIBP]';
-    var cleanDesc = (descEl ? descEl.value : '').replace(/\[PAIBP\].*?\[\/PAIBP\]/g,'').trim();
+    var fEl = document.getElementById('paibp-folder');
+    var pEl = document.getElementById('paibp-pdfbanyak');
+    var descEl = document.getElementById('matDesc');
+    var folder = fEl ? fEl.value.trim() : '';
+    var pdfLines = pEl ? pEl.value.split('\n').map(function(s){ return s.trim(); }).filter(Boolean) : [];
+    var pdfs = pdfLines.map(function(u, i){ return { name: 'PDF ' + (i + 1), url: u }; });
+    var kunci = '[PAIBP]' + JSON.stringify({ folder: folder, pdfs: pdfs }) + '[/PAIBP]';
+    var cleanDesc = (descEl ? descEl.value : '').replace(/\[PAIBP\].*?\[\/PAIBP\]/g, '').trim();
 
     var mid = window.editingMid || ('m_' + Date.now() + '_' + Math.random().toString(36).slice(2, 7));
     var item = {
@@ -9110,15 +9041,14 @@ bersihDobek();
 
     renderMaterialAdmin();
     renderLessons();
-    if(typeof showToast === 'function') showToast('Materi PAIBP berhasil disimpan & tersinkron!', 'success');
+    if(typeof showToast === 'function') showToast('Materi PAIBP berhasil disimpan!', 'success');
   };
 
-  // 3. Tampilan Daftar Materi di Halaman Guru (Tanpa tulisan Bab)
   window.renderMaterialAdmin = function(){
     var el = document.getElementById('materialAdminList');
     if(!el) return;
-    var items = getMats().slice().sort(function(a,b){
-      return (a.kelas - b.kelas) || (a.semester - b.semester) || ((b.createdAt||0) - (a.createdAt||0));
+    var items = getMats().slice().sort(function(a, b){
+      return (a.kelas - b.kelas) || (a.semester - b.semester) || ((b.createdAt || 0) - (a.createdAt || 0));
     });
     if(!items.length){
       el.innerHTML = '<p class="muted">Belum ada materi PAIBP.</p>';
@@ -9129,7 +9059,7 @@ bersihDobek();
       var ex = bacaExtra(m);
       var clean = bersihDesc(m);
       var mid = String(m.id || m._mid || '').replace(/'/g, '');
-      html += '<div class="material" style="border-left:4px solid #1e40af">';
+      html += '<div class="material" style="border-left:4px solid #1e40af;display:block!important">';
       html += '<span class="pill">Kelas ' + esc(m.kelas) + ' • Semester ' + esc(m.semester) + '</span>';
       html += '<h3 style="margin:8px 0 4px">' + esc(m.title) + '</h3>';
       if(clean) html += '<p style="white-space:pre-wrap;font-size:13px">' + esc(clean) + '</p>';
@@ -9146,7 +9076,6 @@ bersihDobek();
     el.innerHTML = html;
   };
 
-  // 4. Tampilan Materi di Halaman Siswa & Orang Tua (Tanpa tulisan Bab, Sinkron Real-time)
   window.renderLessons = function(){
     var list = document.getElementById('lessonList');
     if(!list) return;
@@ -9155,7 +9084,7 @@ bersihDobek();
     var mats = getMats().filter(function(m){
       return String(m.kelas) === String(kc) && String(m.semester) === String(sm);
     });
-    mats.sort(function(a,b){ return (b.createdAt||0) - (a.createdAt||0); });
+    mats.sort(function(a, b){ return (b.createdAt || 0) - (a.createdAt || 0); });
 
     if(!mats.length){
       list.innerHTML = '<p class="muted">Belum ada materi PAIBP untuk Kelas ' + esc(kc) + ' Semester ' + esc(sm) + '.</p>';
@@ -9167,9 +9096,9 @@ bersihDobek();
       var ex = bacaExtra(m);
       var clean = bersihDesc(m);
       var pdfs = ex.pdfs || [];
-      if(!pdfs.length && m.url) pdfs = [{name:'Buka PDF Materi', url:m.url}];
+      if(!pdfs.length && m.url) pdfs = [{ name: 'Buka PDF Materi', url: m.url }];
 
-      html += '<div class="material" style="border-left:4px solid #1e40af">';
+      html += '<div class="material" style="border-left:4px solid #1e40af;display:block!important">';
       html += '<span class="pill">Kelas ' + esc(m.kelas) + ' • Semester ' + esc(m.semester) + '</span>';
       html += '<h3 style="margin:8px 0 6px">' + esc(m.title) + '</h3>';
       if(m.image){
@@ -9184,13 +9113,13 @@ bersihDobek();
       if(ex.folder){
         html += '<p style="margin-top:8px"><a class="btn-link pdf" style="background:#f59e0b!important" href="' + esc(ex.folder) + '" target="_blank" rel="noopener">📁 Buka Folder Kisi-kisi</a></p>';
       }
-            if(m.pdfData || m.pdfName){
+      if(m.pdfData || m.pdfName){
         var pdfLabel = m.pdfName || 'materi.pdf';
         html += '<p style="margin-top:8px"><button type="button" class="btn-link pdf" onclick="downloadMaterialPdf(' + m.kelas + ',' + m.semester + ',1,\'' + (m.id || m._mid || '') + '\')">⬇️ Download PDF - ' + esc(pdfLabel) + '</button></p>';
       }
-      pdfs.forEach(function(p,i){
-        var url = typeof p==='string' ? p : p.url;
-        var nm = typeof p==='string' ? ('Buka PDF '+(i+1)) : (p.name || 'Buka PDF '+(i+1));
+            pdfs.forEach(function(p, i){
+        var url = typeof p === 'string' ? p : p.url;
+        var nm = typeof p === 'string' ? ('Buka PDF ' + (i + 1)) : (p.name || 'Buka PDF ' + (i + 1));
         if(url) html += '<p style="margin-top:8px"><a class="btn-link pdf" href="' + esc(driveDl(url)) + '" target="_blank" rel="noopener">📄 ' + esc(nm) + '</a></p>';
       });
       html += '</div>';
@@ -9203,14 +9132,14 @@ bersihDobek();
   window.editMaterialById = function(mid){
     if(origEdit) origEdit.apply(this, arguments);
     setTimeout(function(){
-      var m = getMats().find(function(x){ return String(x.id||x._mid||'') === String(mid); });
+      var m = getMats().find(function(x){ return String(x.id || x._mid || '') === String(mid); });
       if(!m) return;
       var ex = bacaExtra(m);
       var f = document.getElementById('paibp-folder');
       var p = document.getElementById('paibp-pdfbanyak');
       var d = document.getElementById('matDesc');
       if(f) f.value = ex.folder || '';
-      if(p) p.value = (ex.pdfs||[]).map(function(x){ return typeof x==='string'?x:(x.url||''); }).join('\n');
+      if(p) p.value = (ex.pdfs || []).map(function(x){ return typeof x === 'string' ? x : (x.url || ''); }).join('\n');
       if(d) d.value = bersihDesc(m);
     }, 100);
   };
@@ -9232,5 +9161,3 @@ bersihDobek();
 </script>
 </body>
 </html>
-
-      
