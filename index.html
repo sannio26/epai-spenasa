@@ -9179,5 +9179,116 @@ window.bersihDobek = function(){}; // matikan patch lama yang bikin dobel
   else start();
 })();
 </script>
+
+<script>
+// ===== FIX RUNNING TEXT SINKRON REALTIME =====
+(function(){
+  'use strict';
+  var MARQUEE_ID = '__marquee__';
+
+  function applyMarqueeText(t){
+    if(!t) return;
+    var clean = String(t).replace(/<[^>]*>/g,'').replace(/\n+/g,'  ·  ').trim();
+    if(!clean) return;
+    var el = document.getElementById('marqueeText');
+    var el2 = document.getElementById('marqueeText2');
+    if(el) el.innerHTML = clean;
+    if(el2) el2.innerHTML = clean;
+    try{ localStorage.setItem('epai_marquee_text', clean); }catch(e){}
+    var track = document.getElementById('marqueeTrack');
+    if(track){
+      track.style.animation = 'none';
+      void track.offsetWidth;
+      track.style.animation = '';
+    }
+  }
+
+  // Override save agar langsung upsert ke Supabase
+  window.saveMarqueeText = async function(){
+    var ed = document.getElementById('marqueeEdit');
+    if(!ed) return;
+    var t = (ed.value || '').trim();
+    if(!t){ alert('Teks tidak boleh kosong'); return; }
+
+    applyMarqueeText(t);
+    try{ localStorage.setItem('epai_marquee_text', t); }catch(e){}
+
+    // simpan ke db lokal
+    if(typeof db !== 'undefined'){
+      if(!db.hotnews) db.hotnews = [];
+      var found = null;
+      for(var i=0;i<db.hotnews.length;i++){
+        if(db.hotnews[i] && db.hotnews[i].id === MARQUEE_ID){ found = db.hotnews[i]; break; }
+      }
+      if(found){
+        found.title = t;
+        found.desc = t;
+        found.createdAt = Date.now();
+      } else {
+        db.hotnews.push({
+          id: MARQUEE_ID,
+          title: t,
+          desc: t,
+          kelas: '',
+          video: '',
+          pdf: '',
+          image: '',
+          createdAt: Date.now()
+        });
+      }
+      if(typeof saveDB === 'function') saveDB();
+    }
+
+    // langsung upsert ke Supabase
+    if(window.sb && navigator.onLine){
+      try{
+        var row = {
+          id: MARQUEE_ID,
+          title: t,
+          desc: t,
+          kelas: '',
+          data: { id: MARQUEE_ID, title: t, desc: t }
+        };
+        var res = await window.sb.from('hotnews').upsert(row, { onConflict: 'id' });
+        if(res.error){
+          console.warn('Marquee upsert error', res.error);
+          if(typeof showToast === 'function') showToast('Gagal simpan ke server', 'error');
+          return;
+        }
+        if(typeof showToast === 'function') showToast('Running text tersimpan & tersinkron', 'success');
+        else alert('Running text tersimpan');
+      }catch(e){
+        console.warn(e);
+      }
+    } else {
+      if(typeof showToast === 'function') showToast('Tersimpan lokal (offline)', 'success');
+    }
+  };
+
+  // Poll lebih sering & lebih robust
+  setInterval(function(){
+    if(!window.sb || !navigator.onLine) return;
+    window.sb.from('hotnews').select('id,title,desc,data').eq('id', MARQUEE_ID).maybeSingle()
+      .then(function(res){
+        if(res.error || !res.data) return;
+        var d = res.data.data || res.data;
+        var t = (d.desc || d.title || res.data.desc || res.data.title || '').trim();
+        if(!t) return;
+        var el = document.getElementById('marqueeText');
+        var current = el ? el.textContent.trim() : '';
+        if(current !== t){
+          applyMarqueeText(t);
+        }
+      })
+      .catch(function(){});
+  }, 4000);
+
+  // load awal
+  setTimeout(function(){
+    if(typeof loadMarqueeText === 'function') loadMarqueeText();
+  }, 600);
+})();
+</script>
+
 </body>
 </html>
