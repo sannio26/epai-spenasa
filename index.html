@@ -8907,17 +8907,7 @@ window.downloadMaterialPdf = function(kelas, semester, chapter, mid){
 window.bersihDobek = function(){};
 
 (function(){
-      function driveView(u){
-    if(!u) return '';
-    var m = String(u).match(/\/d\/([^\/]+)/);
-    return m ? ('https://drive.' + '://google.com' + m + '/preview') : u;
-}
-  function driveDl(u){
-    if(!u) return '';
-    var m = String(u).match(/\/d\/([^\/]+)/);
-    return m ? ('https://drive.' + '://google.com' + m) : u;
- }
-
+  function getMats(){ return (window.db && window.db.materials) || []; }
 
   function bacaExtra(m){
     var out = { folder: m.folder || '', pdfs: m.pdfs || [] };
@@ -8925,7 +8915,7 @@ window.bersihDobek = function(){};
       var d = String(m.desc || '');
       var mm = d.match(/\[PAIBP\](.*?)\[\/PAIBP\]/);
       if(mm){
-        var j = JSON.parse(mm[1]);
+        var j = JSON.parse(mm);
         if(j.folder) out.folder = j.folder;
         if(j.pdfs) out.pdfs = j.pdfs;
       }
@@ -8977,71 +8967,82 @@ window.bersihDobek = function(){};
   }
 
   window.saveMaterial = async function(){
-    var matChap = document.getElementById('matChapter');
-    if(matChap && !matChap.value) matChap.value = '1';
+    try {
+      var matChap = document.getElementById('matChapter');
+      if(matChap && !matChap.value) matChap.value = '1';
 
-    var title = (document.getElementById('matTitle').value || '').trim();
-    if(!title){ alert('Judul materi wajib diisi!'); return; }
+      var title = (document.getElementById('matTitle').value || '').trim();
+      if(!title){ alert('Judul materi wajib diisi!'); return; }
 
-    var fEl = document.getElementById('paibp-folder');
-    var pEl = document.getElementById('paibp-pdfbanyak');
-    var descEl = document.getElementById('matDesc');
-    var folder = fEl ? fEl.value.trim() : '';
-    var pdfLines = pEl ? pEl.value.split('\n').map(function(s){ return s.trim(); }).filter(Boolean) : [];
-    var pdfs = pdfLines.map(function(u, i){ return { name: 'PDF ' + (i + 1), url: u }; });
-    var kunci = '[PAIBP]' + JSON.stringify({ folder: folder, pdfs: pdfs }) + '[/PAIBP]';
-    var cleanDesc = (descEl ? descEl.value : '').replace(/\[PAIBP\].*?\[\/PAIBP\]/g, '').trim();
+      var btn = document.getElementById('saveMaterialBtn');
+      if(btn){ btn.disabled = true; btn.textContent = 'Menyimpan...'; }
 
-    var mid = window.editingMid || ('m_' + Date.now() + '_' + Math.random().toString(36).slice(2, 7));
-    var item = {
-      id: mid,
-      _mid: mid,
-      kelas: Number(document.getElementById('matClass').value || 7),
-      semester: Number(document.getElementById('matSemester').value || 1),
-      chapter: 1,
-      title: title,
-      desc: (cleanDesc + ' ' + kunci).trim(),
-      url: (document.getElementById('matUrl').value || '').trim(),
-      video: (document.getElementById('matVideo').value || '').trim(),
-      image: (document.getElementById('matImageUrl').value || ''),
-      pdfData: (document.getElementById('matPdfData').value || ''),
-      pdfName: (document.getElementById('matPdfName').value || ''),
-      createdAt: Date.now()
-    };
+      var fEl = document.getElementById('paibp-folder');
+      var pEl = document.getElementById('paibp-pdfbanyak');
+      var descEl = document.getElementById('matDesc');
+      var folder = fEl ? fEl.value.trim() : '';
+      var pdfLines = pEl ? pEl.value.split('\n').map(function(s){ return s.trim(); }).filter(Boolean) : [];
+      var pdfs = pdfLines.map(function(u, i){ return { name: 'PDF ' + (i + 1), url: u }; });
+      var kunci = '[PAIBP]' + JSON.stringify({ folder: folder, pdfs: pdfs }) + '[/PAIBP]';
+      var cleanDesc = (descEl ? descEl.value : '').replace(/\[PAIBP\].*?\[\/PAIBP\]/g, '').trim();
 
-    if(window.sb && navigator.onLine){
-      var clean = Object.assign({}, item);
-      delete clean.pdfData;
-      var row = {
+      var mid = window.editingMid || ('m_' + Date.now() + '_' + Math.random().toString(36).slice(2, 7));
+      var item = {
         id: mid,
-        kelas: item.kelas,
-        semester: item.semester,
+        _mid: mid,
+        kelas: Number(document.getElementById('matClass').value || 7),
+        semester: Number(document.getElementById('matSemester').value || 1),
         chapter: 1,
-        title: item.title,
-        pdfName: item.pdfName,
-        data: clean
+        title: title,
+        desc: (cleanDesc + ' ' + kunci).trim(),
+        url: (document.getElementById('matUrl').value || '').trim(),
+        video: (document.getElementById('matVideo').value || '').trim(),
+        image: (document.getElementById('matImageUrl').value || ''),
+        pdfData: (document.getElementById('matPdfData').value || ''),
+        pdfName: (document.getElementById('matPdfName').value || ''),
+        createdAt: Date.now()
       };
-      var res = await window.sb.from('materials').upsert(row, { onConflict: 'id' });
-      if(res.error){
-        alert('Gagal simpan ke Supabase: ' + res.error.message);
-        return;
+
+      if(window.sb && navigator.onLine){
+        var clean = Object.assign({}, item);
+        delete clean.pdfData;
+        var row = {
+          id: mid,
+          kelas: item.kelas,
+          semester: item.semester,
+          chapter: 1,
+          title: item.title,
+          pdfName: item.pdfName,
+          data: clean
+        };
+        var res = await window.sb.from('materials').upsert(row, { onConflict: 'id' });
+        if(res.error){
+          if(btn){ btn.disabled = false; btn.textContent = 'Simpan materi'; }
+          alert('Gagal simpan ke Supabase: ' + res.error.message);
+          return;
+        }
       }
+
+      var list = getMats();
+      var idx = list.findIndex(function(m){ return m && (m.id === mid || m._mid === mid); });
+      if(idx >= 0) list[idx] = item; else list.push(item);
+      window.db.materials = list;
+      if(typeof saveDB === 'function') saveDB();
+
+      if(typeof resetMaterialForm === 'function') resetMaterialForm();
+      if(fEl) fEl.value = '';
+      if(pEl) pEl.value = '';
+      if(matChap) matChap.value = '1';
+      if(btn){ btn.disabled = false; btn.textContent = 'Simpan materi'; }
+
+      renderMaterialAdmin();
+      renderLessons();
+      alert('Materi PAIBP berhasil disimpan!');
+    } catch(err) {
+      var btn2 = document.getElementById('saveMaterialBtn');
+      if(btn2){ btn2.disabled = false; btn2.textContent = 'Simpan materi'; }
+      alert('Terjadi kesalahan: ' + err.message);
     }
-
-    var list = getMats();
-    var idx = list.findIndex(function(m){ return m && (m.id === mid || m._mid === mid); });
-    if(idx >= 0) list[idx] = item; else list.push(item);
-    window.db.materials = list;
-    if(typeof saveDB === 'function') saveDB();
-
-    if(typeof resetMaterialForm === 'function') resetMaterialForm();
-    if(fEl) fEl.value = '';
-    if(pEl) pEl.value = '';
-    if(matChap) matChap.value = '1';
-
-    renderMaterialAdmin();
-    renderLessons();
-    if(typeof showToast === 'function') showToast('Materi PAIBP berhasil disimpan!', 'success');
   };
 
   window.renderMaterialAdmin = function(){
@@ -9115,49 +9116,3 @@ window.bersihDobek = function(){};
       }
       if(m.pdfData || m.pdfName){
         var pdfLabel = m.pdfName || 'materi.pdf';
-        html += '<p style="margin-top:8px"><button type="button" class="btn-link pdf" onclick="downloadMaterialPdf(' + m.kelas + ',' + m.semester + ',1,\'' + (m.id || m._mid || '') + '\')">⬇️ Download PDF - ' + esc(pdfLabel) + '</button></p>';
-      }
-            pdfs.forEach(function(p, i){
-        var url = typeof p === 'string' ? p : p.url;
-        var nm = typeof p === 'string' ? ('Buka PDF ' + (i + 1)) : (p.name || 'Buka PDF ' + (i + 1));
-        if(url) html += '<p style="margin-top:8px"><a class="btn-link pdf" href="' + esc(driveDl(url)) + '" target="_blank" rel="noopener">📄 ' + esc(nm) + '</a></p>';
-      });
-      html += '</div>';
-    });
-    list.innerHTML = html;
-  };
-
-  // 5. Pastikan Edit mengisi ulang field tambahan dengan bersih
-  var origEdit = window.editMaterialById;
-  window.editMaterialById = function(mid){
-    if(origEdit) origEdit.apply(this, arguments);
-    setTimeout(function(){
-      var m = getMats().find(function(x){ return String(x.id || x._mid || '') === String(mid); });
-      if(!m) return;
-      var ex = bacaExtra(m);
-      var f = document.getElementById('paibp-folder');
-      var p = document.getElementById('paibp-pdfbanyak');
-      var d = document.getElementById('matDesc');
-      if(f) f.value = ex.folder || '';
-      if(p) p.value = (ex.pdfs || []).map(function(x){ return typeof x === 'string' ? x : (x.url || ''); }).join('\n');
-      if(d) d.value = bersihDesc(m);
-    }, 100);
-  };
-
-  // 6. Auto-refresh tampilan materi tiap kali Supabase menerima data baru
-  var origLoadAll = window.loadAll;
-  if(typeof origLoadAll === 'function'){
-    window.loadAll = async function(){
-      await origLoadAll.apply(this, arguments);
-      renderLessons();
-      renderMaterialAdmin();
-    };
-  }
-
-  setInterval(rapikanFormGuru, 1500);
-  if(document.readyState === 'loading') document.addEventListener('DOMContentLoaded', rapikanFormGuru);
-  else rapikanFormGuru();
-})();
-</script>
-</body>
-</html>
