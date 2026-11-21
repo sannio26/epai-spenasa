@@ -8113,7 +8113,41 @@ try { onLoginRoleChange(); } catch (e) {}
       } finally {
         loadingPromise = null;
       }
-    })();
+    
+  window.openPortfolioFile = function(subId){
+    var sub = getSubmissions().find(function(s){ return s.id === subId; });
+    if (!sub || !sub.fileData) { alert('File tidak tersedia'); return; }
+    var w = window.open('');
+    if (!w) { alert('Izinkan popup'); return; }
+    var isImg = (sub.fileName||'').match(/\.(jpg|jpeg|png|gif)$/i) || (sub.fileData||'').indexOf('image/') !== -1;
+    if (isImg) {
+      w.document.write('<img src="' + sub.fileData + '" style="max-width:100%">');
+    } else {
+      w.document.write('<iframe src="' + sub.fileData + '" style="width:100%;height:100vh;border:0"></iframe>');
+    }
+    w.document.close();
+  };
+
+
+  window.savePortfolioGrades = function(portId){
+    var subs = getSubmissions();
+    var changed = 0;
+    subs.forEach(function(s){
+      if (s.portfolioId !== portId) return;
+      var inp = document.getElementById('nilai_' + s.id);
+      if (!inp) return;
+      var val = inp.value === '' ? null : Number(inp.value);
+      if (val !== null && (val < 0 || val > 100)) return;
+      s.nilai = val;
+      changed++;
+    });
+    window.db.portfolioSubmissions = subs;
+    if (typeof saveDB === 'function') saveDB();
+    alert('Nilai tersimpan (' + changed + ' siswa)');
+    viewPortfolioSubmissions(portId);
+  };
+
+})();
     return loadingPromise;
   };
 
@@ -8392,6 +8426,40 @@ try { onLoginRoleChange(); } catch (e) {}
   } else {
     setTimeout(init, 350);
   }
+
+  window.openPortfolioFile = function(subId){
+    var sub = getSubmissions().find(function(s){ return s.id === subId; });
+    if (!sub || !sub.fileData) { alert('File tidak tersedia'); return; }
+    var w = window.open('');
+    if (!w) { alert('Izinkan popup'); return; }
+    var isImg = (sub.fileName||'').match(/\.(jpg|jpeg|png|gif)$/i) || (sub.fileData||'').indexOf('image/') !== -1;
+    if (isImg) {
+      w.document.write('<img src="' + sub.fileData + '" style="max-width:100%">');
+    } else {
+      w.document.write('<iframe src="' + sub.fileData + '" style="width:100%;height:100vh;border:0"></iframe>');
+    }
+    w.document.close();
+  };
+
+
+  window.savePortfolioGrades = function(portId){
+    var subs = getSubmissions();
+    var changed = 0;
+    subs.forEach(function(s){
+      if (s.portfolioId !== portId) return;
+      var inp = document.getElementById('nilai_' + s.id);
+      if (!inp) return;
+      var val = inp.value === '' ? null : Number(inp.value);
+      if (val !== null && (val < 0 || val > 100)) return;
+      s.nilai = val;
+      changed++;
+    });
+    window.db.portfolioSubmissions = subs;
+    if (typeof saveDB === 'function') saveDB();
+    alert('Nilai tersimpan (' + changed + ' siswa)');
+    viewPortfolioSubmissions(portId);
+  };
+
 })();
 
 /* ===== HOT NEWS ===== */
@@ -9210,6 +9278,40 @@ window.bersihDobek = function(){}; // matikan patch lama yang bikin dobel
   setTimeout(start, 400);
   if(document.readyState === 'loading') document.addEventListener('DOMContentLoaded', start);
   else start();
+
+  window.openPortfolioFile = function(subId){
+    var sub = getSubmissions().find(function(s){ return s.id === subId; });
+    if (!sub || !sub.fileData) { alert('File tidak tersedia'); return; }
+    var w = window.open('');
+    if (!w) { alert('Izinkan popup'); return; }
+    var isImg = (sub.fileName||'').match(/\.(jpg|jpeg|png|gif)$/i) || (sub.fileData||'').indexOf('image/') !== -1;
+    if (isImg) {
+      w.document.write('<img src="' + sub.fileData + '" style="max-width:100%">');
+    } else {
+      w.document.write('<iframe src="' + sub.fileData + '" style="width:100%;height:100vh;border:0"></iframe>');
+    }
+    w.document.close();
+  };
+
+
+  window.savePortfolioGrades = function(portId){
+    var subs = getSubmissions();
+    var changed = 0;
+    subs.forEach(function(s){
+      if (s.portfolioId !== portId) return;
+      var inp = document.getElementById('nilai_' + s.id);
+      if (!inp) return;
+      var val = inp.value === '' ? null : Number(inp.value);
+      if (val !== null && (val < 0 || val > 100)) return;
+      s.nilai = val;
+      changed++;
+    });
+    window.db.portfolioSubmissions = subs;
+    if (typeof saveDB === 'function') saveDB();
+    alert('Nilai tersimpan (' + changed + ' siswa)');
+    viewPortfolioSubmissions(portId);
+  };
+
 })();
 </script>
 
@@ -9320,6 +9422,40 @@ window.bersihDobek = function(){}; // matikan patch lama yang bikin dobel
   setTimeout(function(){
     if(typeof loadMarqueeText === 'function') loadMarqueeText();
   }, 600);
+
+  window.openPortfolioFile = function(subId){
+    var sub = getSubmissions().find(function(s){ return s.id === subId; });
+    if (!sub || !sub.fileData) { alert('File tidak tersedia'); return; }
+    var w = window.open('');
+    if (!w) { alert('Izinkan popup'); return; }
+    var isImg = (sub.fileName||'').match(/\.(jpg|jpeg|png|gif)$/i) || (sub.fileData||'').indexOf('image/') !== -1;
+    if (isImg) {
+      w.document.write('<img src="' + sub.fileData + '" style="max-width:100%">');
+    } else {
+      w.document.write('<iframe src="' + sub.fileData + '" style="width:100%;height:100vh;border:0"></iframe>');
+    }
+    w.document.close();
+  };
+
+
+  window.savePortfolioGrades = function(portId){
+    var subs = getSubmissions();
+    var changed = 0;
+    subs.forEach(function(s){
+      if (s.portfolioId !== portId) return;
+      var inp = document.getElementById('nilai_' + s.id);
+      if (!inp) return;
+      var val = inp.value === '' ? null : Number(inp.value);
+      if (val !== null && (val < 0 || val > 100)) return;
+      s.nilai = val;
+      changed++;
+    });
+    window.db.portfolioSubmissions = subs;
+    if (typeof saveDB === 'function') saveDB();
+    alert('Nilai tersimpan (' + changed + ' siswa)');
+    viewPortfolioSubmissions(portId);
+  };
+
 })();
 </script>
 
@@ -9403,11 +9539,18 @@ window.bersihDobek = function(){}; // matikan patch lama yang bikin dobel
     var html = '<h3>Kiriman: ' + esc(port.title||'') + ' (' + subs.length + ' siswa)</h3>';
     html += '<button type="button" onclick="downloadPortfolioCSV(\'' + portId + '\')">Download Excel</button> ';
     html += '<button type="button" class="secondary" onclick="printPortfolioPDF(\'' + portId + '\')">Cetak PDF</button>';
-    html += '<div class="tablewrap" style="margin-top:10px"><table><thead><tr><th>Nama</th><th>Kelas</th><th>Teks</th><th>File</th><th>Waktu</th></tr></thead><tbody>';
+    html += '<div class="tablewrap" style="margin-top:10px"><table><thead><tr><th>Nama</th><th>Kelas</th><th>Teks</th><th>File</th><th>Nilai</th><th>Waktu</th></tr></thead><tbody>';
     subs.forEach(function(s){
-      html += '<tr><td>' + esc(s.name) + '</td><td>' + esc(s.kelas) + '</td><td>' + esc(s.text||'') + '</td><td>' + esc(s.fileName||'-') + '</td><td>' + new Date(s.submittedAt||0).toLocaleString('id-ID') + '</td></tr>';
+      var fileCell = esc(s.fileName||'-');
+      if (s.fileData) {
+        fileCell += ' <button type="button" style="padding:4px 8px;font-size:12px" onclick="openPortfolioFile(\'' + s.id + '\')">Lihat</button>';
+      }
+      html += '<tr><td>' + esc(s.name) + '</td><td>' + esc(s.kelas) + '</td><td>' + esc(s.text||'') + '</td><td>' + fileCell + '</td>';
+      html += '<td><input type="number" min="0" max="100" value="' + (s.nilai||'') + '" id="nilai_' + s.id + '" style="width:70px;padding:4px"></td>';
+      html += '<td>' + new Date(s.submittedAt||0).toLocaleString('id-ID') + '</td></tr>';
     });
     html += '</tbody></table></div>';
+    html += '<div class="actions" style="margin-top:10px"><button type="button" onclick="savePortfolioGrades(\'' + portId + '\')">Simpan Nilai</button></div>';
     el.innerHTML = html;
   };
 
@@ -9430,7 +9573,7 @@ window.bersihDobek = function(){}; // matikan patch lama yang bikin dobel
     var subs = getSubmissions().filter(function(s){ return s.portfolioId === portId; });
     var w = window.open('', '_blank');
     var h = '<!DOCTYPE html><html><head><meta charset="utf-8"><title>Portofolio</title><style>body{font-family:system-ui;padding:16px} table{width:100%;border-collapse:collapse;font-size:12px} th,td{border:1px solid #ccc;padding:5px} th{background:#f1f7f3}</style></head><body>';
-    h += '<h2>' + esc(port.title||'') + '</h2><table><thead><tr><th>Nama</th><th>Kelas</th><th>Teks</th><th>File</th><th>Waktu</th></tr></thead><tbody>';
+    h += '<h2>' + esc(port.title||'') + '</h2><table><thead><tr><th>Nama</th><th>Kelas</th><th>Teks</th><th>File</th><th>Nilai</th><th>Waktu</th></tr></thead><tbody>';
     subs.forEach(function(s){
       h += '<tr><td>' + esc(s.name) + '</td><td>' + esc(s.kelas) + '</td><td>' + esc(s.text||'') + '</td><td>' + esc(s.fileName||'-') + '</td><td>' + new Date(s.submittedAt||0).toLocaleString('id-ID') + '</td></tr>';
     });
@@ -9503,6 +9646,40 @@ window.bersihDobek = function(){}; // matikan patch lama yang bikin dobel
     if (id === 'teacherPortfolio') renderPortfolioAdmin();
     if (id === 'studentPortfolio') renderStudentPortfolio();
   };
+
+  window.openPortfolioFile = function(subId){
+    var sub = getSubmissions().find(function(s){ return s.id === subId; });
+    if (!sub || !sub.fileData) { alert('File tidak tersedia'); return; }
+    var w = window.open('');
+    if (!w) { alert('Izinkan popup'); return; }
+    var isImg = (sub.fileName||'').match(/\.(jpg|jpeg|png|gif)$/i) || (sub.fileData||'').indexOf('image/') !== -1;
+    if (isImg) {
+      w.document.write('<img src="' + sub.fileData + '" style="max-width:100%">');
+    } else {
+      w.document.write('<iframe src="' + sub.fileData + '" style="width:100%;height:100vh;border:0"></iframe>');
+    }
+    w.document.close();
+  };
+
+
+  window.savePortfolioGrades = function(portId){
+    var subs = getSubmissions();
+    var changed = 0;
+    subs.forEach(function(s){
+      if (s.portfolioId !== portId) return;
+      var inp = document.getElementById('nilai_' + s.id);
+      if (!inp) return;
+      var val = inp.value === '' ? null : Number(inp.value);
+      if (val !== null && (val < 0 || val > 100)) return;
+      s.nilai = val;
+      changed++;
+    });
+    window.db.portfolioSubmissions = subs;
+    if (typeof saveDB === 'function') saveDB();
+    alert('Nilai tersimpan (' + changed + ' siswa)');
+    viewPortfolioSubmissions(portId);
+  };
+
 })();
 </script>
 
