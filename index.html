@@ -3423,15 +3423,17 @@ header {
 <link rel="apple-touch-icon" href="logo.jpg">
 <link rel="icon" type="image/jpeg" href="logo.jpg">
 
+
+
+
 <style>
-/* Portofolio hanya tampil sesuai role */
-#teacherPortfolio, #studentPortfolio { display: none !important; }
-body.role-teacher #teacherPortfolio.tabcontent:not(.hidden) { display: block !important; }
-body.role-student #studentPortfolio.tabcontent:not(.hidden),
-body.role-parent #studentPortfolio.tabcontent:not(.hidden) { display: block !important; }
-/* Pastikan tidak muncul di login */
-#loginBox ~ #teacherPortfolio,
-#loginBox ~ #studentPortfolio { display: none !important; }
+/* Portofolio hanya tampil saat tab-nya aktif */
+#teacherPortfolio { display: none !important; }
+#studentPortfolio { display: none !important; }
+body.role-teacher #teacherPortfolio.active-tab,
+body.role-teacher #teacherPortfolio:not(.hidden) { display: block !important; }
+body.role-student #studentPortfolio:not(.hidden),
+body.role-parent #studentPortfolio:not(.hidden) { display: block !important; }
 </style>
 
 </head>
@@ -9595,15 +9597,17 @@ window.bersihDobek = function(){}; // matikan patch lama yang bikin dobel
     var subs = getSubmissions().filter(function(s){ return s.portfolioId === portId; });
     var w = window.open('', '_blank');
     var h = '<!DOCTYPE html><html><head><meta charset="utf-8"><title>Portofolio</title><style>body{font-family:system-ui;padding:16px} table{width:100%;border-collapse:collapse;font-size:12px} th,td{border:1px solid #ccc;padding:5px} th{background:#f1f7f3}</style>
+
+
+
 <style>
-/* Portofolio hanya tampil sesuai role */
-#teacherPortfolio, #studentPortfolio { display: none !important; }
-body.role-teacher #teacherPortfolio.tabcontent:not(.hidden) { display: block !important; }
-body.role-student #studentPortfolio.tabcontent:not(.hidden),
-body.role-parent #studentPortfolio.tabcontent:not(.hidden) { display: block !important; }
-/* Pastikan tidak muncul di login */
-#loginBox ~ #teacherPortfolio,
-#loginBox ~ #studentPortfolio { display: none !important; }
+/* Portofolio hanya tampil saat tab-nya aktif */
+#teacherPortfolio { display: none !important; }
+#studentPortfolio { display: none !important; }
+body.role-teacher #teacherPortfolio.active-tab,
+body.role-teacher #teacherPortfolio:not(.hidden) { display: block !important; }
+body.role-student #studentPortfolio:not(.hidden),
+body.role-parent #studentPortfolio:not(.hidden) { display: block !important; }
 </style>
 
 </head><body>';
@@ -9611,7 +9615,23 @@ body.role-parent #studentPortfolio.tabcontent:not(.hidden) { display: block !imp
     subs.forEach(function(s){
       h += '<tr><td>' + esc(s.name) + '</td><td>' + esc(s.kelas) + '</td><td>' + esc(s.text||'') + '</td><td>' + esc(s.fileName||'-') + '</td><td>' + new Date(s.submittedAt||0).toLocaleString('id-ID') + '</td></tr>';
     });
-    h += '</tbody></table></body></html>';
+    h += '</tbody></table>
+<script>
+(function(){
+  var orig = window.showTab;
+  window.showTab = function(id, btn){
+    if (typeof orig === 'function') orig(id, btn);
+    var tp = document.getElementById('teacherPortfolio');
+    var sp = document.getElementById('studentPortfolio');
+    if (tp) tp.classList.toggle('hidden', id !== 'teacherPortfolio');
+    if (sp) sp.classList.toggle('hidden', id !== 'studentPortfolio');
+    if (id === 'teacherPortfolio' && typeof renderPortfolioAdmin === 'function') renderPortfolioAdmin();
+    if (id === 'studentPortfolio' && typeof renderStudentPortfolio === 'function') renderStudentPortfolio();
+  };
+})();
+</script>
+
+</body></html>';
     w.document.write(h);
     w.document.close();
     setTimeout(function(){ w.print(); }, 400);
@@ -9727,6 +9747,22 @@ body.role-parent #studentPortfolio.tabcontent:not(.hidden) { display: block !imp
     viewPortfolioSubmissions(portId);
   };
 
+})();
+</script>
+
+
+<script>
+(function(){
+  var orig = window.showTab;
+  window.showTab = function(id, btn){
+    if (typeof orig === 'function') orig(id, btn);
+    var tp = document.getElementById('teacherPortfolio');
+    var sp = document.getElementById('studentPortfolio');
+    if (tp) tp.classList.toggle('hidden', id !== 'teacherPortfolio');
+    if (sp) sp.classList.toggle('hidden', id !== 'studentPortfolio');
+    if (id === 'teacherPortfolio' && typeof renderPortfolioAdmin === 'function') renderPortfolioAdmin();
+    if (id === 'studentPortfolio' && typeof renderStudentPortfolio === 'function') renderStudentPortfolio();
+  };
 })();
 </script>
 
