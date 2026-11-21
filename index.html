@@ -9362,6 +9362,8 @@ window.bersihDobek = function(){}; // matikan patch lama yang bikin dobel
   }
 
   window.savePortfolioTask = async function(){
+    try {
+    alert('Fungsi simpan dipanggil...');
     var title = (document.getElementById('portTitle').value || '').trim();
     if (!title) { alert('Nama tugas wajib diisi'); return; }
     var item = {
@@ -9399,6 +9401,10 @@ window.bersihDobek = function(){}; // matikan patch lama yang bikin dobel
     }
     if (typeof showToast === 'function') showToast(msg, msg.indexOf('Gagal')>=0 || msg.indexOf('lokal')>=0 ? 'error' : 'success');
     else alert(msg);
+    } catch(err) {
+      alert('Error simpan: ' + (err.message || err));
+      console.error(err);
+    }
   };
 
   window.resetPortfolioForm = function(){
@@ -9419,9 +9425,9 @@ window.bersihDobek = function(){}; // matikan patch lama yang bikin dobel
 
   window.renderPortfolioAdmin = function(){
     var el = document.getElementById('portfolioAdminList');
-    if (!el) return;
+    if (!el) { console.warn('portfolioAdminList not found'); return; }
     var list = getPortfolios().slice().sort(function(a,b){ return (b.createdAt||0) - (a.createdAt||0); });
-    if (!list.length) { el.innerHTML = '<p class="muted">Belum ada tugas portofolio.</p>'; return; }
+    if (!list.length) { el.innerHTML = '<p class="muted">Belum ada tugas portofolio. (total: ' + list.length + ')</p>'; return; }
     var html = '';
     list.forEach(function(p){
       html += '<div class="material" style="border-left:4px solid #0b7a55">';
