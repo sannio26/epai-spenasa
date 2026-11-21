@@ -9452,8 +9452,14 @@ document.addEventListener('click', function(e){
 </script>
 
 
+
+
+
+
+
+
 <script>
-/* ===== PORTOFOLIO CLEAN ===== */
+/* ===== PORTOFOLIO SINGLE CLEAN ===== */
 (function(){
   'use strict';
   if (!window.db) window.db = {};
@@ -9465,34 +9471,30 @@ document.addEventListener('click', function(e){
   function getSubmissions(){ return window.db.portfolioSubmissions || []; }
 
   window.savePortfolioTask = async function(){
-    try {
-      var titleEl = document.getElementById('portTitle');
-      var title = (titleEl && titleEl.value || '').trim();
-      if (!title) { alert('Nama tugas wajib diisi'); return; }
-      var item = {
-        id: 'port_' + Date.now() + '_' + Math.random().toString(36).slice(2,6),
-        title: title,
-        kelas: (document.getElementById('portClass')||{}).value || 'all',
-        instruksi: ((document.getElementById('portInstruksi')||{}).value || '').trim(),
-        createdAt: Date.now()
-      };
-      var list = getPortfolios();
-      list.push(item);
-      window.db.portfolios = list;
-      if (typeof saveDB === 'function') saveDB();
-      if (titleEl) titleEl.value = '';
-      var instr = document.getElementById('portInstruksi'); if (instr) instr.value = '';
-      renderPortfolioAdmin();
-      alert('Tugas tersimpan lokal: ' + item.title);
-
-      if (window.sb && navigator.onLine) {
+    var titleEl = document.getElementById('portTitle');
+    var title = (titleEl ? titleEl.value : '').trim();
+    if (!title) { alert('Nama tugas wajib diisi'); return; }
+    var item = {
+      id: 'port_' + Date.now() + '_' + Math.random().toString(36).slice(2,6),
+      title: title,
+      kelas: (document.getElementById('portClass') || {}).value || 'all',
+      instruksi: ((document.getElementById('portInstruksi') || {}).value || '').trim(),
+      createdAt: Date.now()
+    };
+    getPortfolios().push(item);
+    window.db.portfolios = getPortfolios();
+    if (typeof saveDB === 'function') saveDB();
+    if (titleEl) titleEl.value = '';
+    var iel = document.getElementById('portInstruksi'); if (iel) iel.value = '';
+    renderPortfolioAdmin();
+    alert('Tugas tersimpan lokal: ' + item.title);
+    if (window.sb && navigator.onLine) {
+      try {
         var row = { id: item.id, title: item.title, kelas: item.kelas, instruksi: item.instruksi, createdAt: item.createdAt, data: item };
         var res = await window.sb.from('portfolios').upsert(row, { onConflict: 'id' });
-        if (res.error) alert('Gagal ke server: ' + res.error.message);
-        else alert('Berhasil tersinkron ke server');
-      }
-    } catch(e) {
-      alert('Error: ' + (e.message || e));
+        if (res.error) alert('Gagal server: ' + res.error.message);
+        else alert('Tersinkron ke Supabase');
+      } catch(e) { alert('Error: ' + e.message); }
     }
   };
 
@@ -9503,9 +9505,9 @@ document.addEventListener('click', function(e){
     if (!list.length) { el.innerHTML = '<p class="muted">Belum ada tugas.</p>'; return; }
     var html = '';
     list.forEach(function(p){
-      html += '<div class="material" style="border-left:4px solid #0b7a55;margin:8px 0;padding:10px">';
+      html += '<div style="border-left:4px solid #0b7a55;margin:10px 0;padding:12px;border-radius:12px;background:#fff">';
       html += '<b>' + esc(p.title) + '</b> <span class="pill">Kelas ' + esc(p.kelas==='all'?'Semua':p.kelas) + '</span>';
-      html += '<div style="font-size:13px;margin:4px 0">' + esc(p.instruksi||'') + '</div>';
+      html += '<div style="font-size:13px;margin:6px 0;color:#475569">' + esc(p.instruksi||'') + '</div>';
       html += '<button type="button" class="danger" onclick="deletePortfolioTask(\''+p.id+'\')">Hapus</button>';
       html += '</div>';
     });
@@ -9529,10 +9531,12 @@ document.addEventListener('click', function(e){
     if (!list.length) { el.innerHTML = '<p class="muted">Belum ada tugas untuk kelas kamu.</p>'; return; }
     var html = '';
     list.forEach(function(p){
-      html += '<div class="material" style="border-left:4px solid #0b7a55;margin:8px 0;padding:10px">';
+      var my = getSubmissions().find(function(s){ return s.portfolioId === p.id && s.username === (window.current && window.current.username); });
+      html += '<div style="border-left:4px solid #0b7a55;margin:10px 0;padding:12px;border-radius:12px;background:#fff">';
       html += '<b>' + esc(p.title) + '</b>';
-      html += '<div style="font-size:13px;margin:4px 0">' + esc(p.instruksi||'') + '</div>';
-      html += '<button type="button" onclick="openStudentPortfolioForm(\''+p.id+'\')">Kirim Tugas</button>';
+      html += '<div style="font-size:13px;margin:6px 0">' + esc(p.instruksi||'') + '</div>';
+      if (my) html += '<p class="muted">✅ Sudah dikirim</p>';
+      html += '<button type="button" onclick="openStudentPortfolioForm(\''+p.id+'\')">' + (my ? 'Edit' : 'Kirim Tugas') + '</button>';
       html += '</div>';
     });
     el.innerHTML = html;
@@ -9541,10 +9545,37 @@ document.addEventListener('click', function(e){
   window.openStudentPortfolioForm = function(portId){
     var form = document.getElementById('studentPortfolioForm');
     if (!form) return;
+    var port = getPortfolios().find(function(p){ return p.id === portId; });
+    if (!port) return;
     form.classList.remove('hidden');
-    form.innerHTML = '<textarea id="portSubmitText" rows="3" placeholder="Tulis jawaban..."></textarea>' +
-      '<input type="file" id="portSubmitFile" accept="image/*,.pdf">' +
-      '<button type="button" onclick="alert(\'Kirim sementara (file handling lengkap menyusul)\')">Kirim</button>';
+    form.innerHTML = '<h3>' + esc(port.title) + '</h3><p>' + esc(port.instruksi||'') + '</p>' +
+      '<label>Tulisan</label><textarea id="portSubmitText" rows="4"></textarea>' +
+      '<label>File</label><input type="file" id="portSubmitFile" accept="image/*,.pdf">' +
+      '<div class="actions"><button type="button" onclick="submitPortfolio(\''+portId+'\')">Kirim</button></div>';
+  };
+
+  window.submitPortfolio = function(portId){
+    var text = (document.getElementById('portSubmitText').value || '').trim();
+    var fileInput = document.getElementById('portSubmitFile');
+    var file = fileInput && fileInput.files && fileInput.files[0];
+    if (!text && !file) { alert('Isi tulisan atau pilih file'); return; }
+    var item = {
+      id: 'psub_' + Date.now(),
+      portfolioId: portId,
+      username: (window.current && window.current.username) || '',
+      name: (window.current && window.current.name) || '',
+      kelas: (window.current && window.current.kelas) || '',
+      text: text,
+      fileName: file ? file.name : '',
+      submittedAt: Date.now()
+    };
+    var list = getSubmissions().filter(function(s){ return !(s.portfolioId===portId && s.username===item.username); });
+    list.push(item);
+    window.db.portfolioSubmissions = list;
+    if (typeof saveDB === 'function') saveDB();
+    document.getElementById('studentPortfolioForm').classList.add('hidden');
+    renderStudentPortfolio();
+    alert('Tugas terkirim');
   };
 
   var orig = window.showTab;
@@ -9807,8 +9838,14 @@ document.addEventListener('click', function(e){
 </script>
 
 
+
+
+
+
+
+
 <script>
-/* ===== PORTOFOLIO CLEAN ===== */
+/* ===== PORTOFOLIO SINGLE CLEAN ===== */
 (function(){
   'use strict';
   if (!window.db) window.db = {};
@@ -9820,34 +9857,30 @@ document.addEventListener('click', function(e){
   function getSubmissions(){ return window.db.portfolioSubmissions || []; }
 
   window.savePortfolioTask = async function(){
-    try {
-      var titleEl = document.getElementById('portTitle');
-      var title = (titleEl && titleEl.value || '').trim();
-      if (!title) { alert('Nama tugas wajib diisi'); return; }
-      var item = {
-        id: 'port_' + Date.now() + '_' + Math.random().toString(36).slice(2,6),
-        title: title,
-        kelas: (document.getElementById('portClass')||{}).value || 'all',
-        instruksi: ((document.getElementById('portInstruksi')||{}).value || '').trim(),
-        createdAt: Date.now()
-      };
-      var list = getPortfolios();
-      list.push(item);
-      window.db.portfolios = list;
-      if (typeof saveDB === 'function') saveDB();
-      if (titleEl) titleEl.value = '';
-      var instr = document.getElementById('portInstruksi'); if (instr) instr.value = '';
-      renderPortfolioAdmin();
-      alert('Tugas tersimpan lokal: ' + item.title);
-
-      if (window.sb && navigator.onLine) {
+    var titleEl = document.getElementById('portTitle');
+    var title = (titleEl ? titleEl.value : '').trim();
+    if (!title) { alert('Nama tugas wajib diisi'); return; }
+    var item = {
+      id: 'port_' + Date.now() + '_' + Math.random().toString(36).slice(2,6),
+      title: title,
+      kelas: (document.getElementById('portClass') || {}).value || 'all',
+      instruksi: ((document.getElementById('portInstruksi') || {}).value || '').trim(),
+      createdAt: Date.now()
+    };
+    getPortfolios().push(item);
+    window.db.portfolios = getPortfolios();
+    if (typeof saveDB === 'function') saveDB();
+    if (titleEl) titleEl.value = '';
+    var iel = document.getElementById('portInstruksi'); if (iel) iel.value = '';
+    renderPortfolioAdmin();
+    alert('Tugas tersimpan lokal: ' + item.title);
+    if (window.sb && navigator.onLine) {
+      try {
         var row = { id: item.id, title: item.title, kelas: item.kelas, instruksi: item.instruksi, createdAt: item.createdAt, data: item };
         var res = await window.sb.from('portfolios').upsert(row, { onConflict: 'id' });
-        if (res.error) alert('Gagal ke server: ' + res.error.message);
-        else alert('Berhasil tersinkron ke server');
-      }
-    } catch(e) {
-      alert('Error: ' + (e.message || e));
+        if (res.error) alert('Gagal server: ' + res.error.message);
+        else alert('Tersinkron ke Supabase');
+      } catch(e) { alert('Error: ' + e.message); }
     }
   };
 
@@ -9858,9 +9891,9 @@ document.addEventListener('click', function(e){
     if (!list.length) { el.innerHTML = '<p class="muted">Belum ada tugas.</p>'; return; }
     var html = '';
     list.forEach(function(p){
-      html += '<div class="material" style="border-left:4px solid #0b7a55;margin:8px 0;padding:10px">';
+      html += '<div style="border-left:4px solid #0b7a55;margin:10px 0;padding:12px;border-radius:12px;background:#fff">';
       html += '<b>' + esc(p.title) + '</b> <span class="pill">Kelas ' + esc(p.kelas==='all'?'Semua':p.kelas) + '</span>';
-      html += '<div style="font-size:13px;margin:4px 0">' + esc(p.instruksi||'') + '</div>';
+      html += '<div style="font-size:13px;margin:6px 0;color:#475569">' + esc(p.instruksi||'') + '</div>';
       html += '<button type="button" class="danger" onclick="deletePortfolioTask(\''+p.id+'\')">Hapus</button>';
       html += '</div>';
     });
@@ -9884,10 +9917,12 @@ document.addEventListener('click', function(e){
     if (!list.length) { el.innerHTML = '<p class="muted">Belum ada tugas untuk kelas kamu.</p>'; return; }
     var html = '';
     list.forEach(function(p){
-      html += '<div class="material" style="border-left:4px solid #0b7a55;margin:8px 0;padding:10px">';
+      var my = getSubmissions().find(function(s){ return s.portfolioId === p.id && s.username === (window.current && window.current.username); });
+      html += '<div style="border-left:4px solid #0b7a55;margin:10px 0;padding:12px;border-radius:12px;background:#fff">';
       html += '<b>' + esc(p.title) + '</b>';
-      html += '<div style="font-size:13px;margin:4px 0">' + esc(p.instruksi||'') + '</div>';
-      html += '<button type="button" onclick="openStudentPortfolioForm(\''+p.id+'\')">Kirim Tugas</button>';
+      html += '<div style="font-size:13px;margin:6px 0">' + esc(p.instruksi||'') + '</div>';
+      if (my) html += '<p class="muted">✅ Sudah dikirim</p>';
+      html += '<button type="button" onclick="openStudentPortfolioForm(\''+p.id+'\')">' + (my ? 'Edit' : 'Kirim Tugas') + '</button>';
       html += '</div>';
     });
     el.innerHTML = html;
@@ -9896,10 +9931,37 @@ document.addEventListener('click', function(e){
   window.openStudentPortfolioForm = function(portId){
     var form = document.getElementById('studentPortfolioForm');
     if (!form) return;
+    var port = getPortfolios().find(function(p){ return p.id === portId; });
+    if (!port) return;
     form.classList.remove('hidden');
-    form.innerHTML = '<textarea id="portSubmitText" rows="3" placeholder="Tulis jawaban..."></textarea>' +
-      '<input type="file" id="portSubmitFile" accept="image/*,.pdf">' +
-      '<button type="button" onclick="alert(\'Kirim sementara (file handling lengkap menyusul)\')">Kirim</button>';
+    form.innerHTML = '<h3>' + esc(port.title) + '</h3><p>' + esc(port.instruksi||'') + '</p>' +
+      '<label>Tulisan</label><textarea id="portSubmitText" rows="4"></textarea>' +
+      '<label>File</label><input type="file" id="portSubmitFile" accept="image/*,.pdf">' +
+      '<div class="actions"><button type="button" onclick="submitPortfolio(\''+portId+'\')">Kirim</button></div>';
+  };
+
+  window.submitPortfolio = function(portId){
+    var text = (document.getElementById('portSubmitText').value || '').trim();
+    var fileInput = document.getElementById('portSubmitFile');
+    var file = fileInput && fileInput.files && fileInput.files[0];
+    if (!text && !file) { alert('Isi tulisan atau pilih file'); return; }
+    var item = {
+      id: 'psub_' + Date.now(),
+      portfolioId: portId,
+      username: (window.current && window.current.username) || '',
+      name: (window.current && window.current.name) || '',
+      kelas: (window.current && window.current.kelas) || '',
+      text: text,
+      fileName: file ? file.name : '',
+      submittedAt: Date.now()
+    };
+    var list = getSubmissions().filter(function(s){ return !(s.portfolioId===portId && s.username===item.username); });
+    list.push(item);
+    window.db.portfolioSubmissions = list;
+    if (typeof saveDB === 'function') saveDB();
+    document.getElementById('studentPortfolioForm').classList.add('hidden');
+    renderStudentPortfolio();
+    alert('Tugas terkirim');
   };
 
   var orig = window.showTab;
