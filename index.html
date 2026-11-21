@@ -3422,6 +3422,18 @@ header {
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <link rel="apple-touch-icon" href="logo.jpg">
 <link rel="icon" type="image/jpeg" href="logo.jpg">
+
+<style>
+/* Portofolio hanya tampil sesuai role */
+#teacherPortfolio, #studentPortfolio { display: none !important; }
+body.role-teacher #teacherPortfolio.tabcontent:not(.hidden) { display: block !important; }
+body.role-student #studentPortfolio.tabcontent:not(.hidden),
+body.role-parent #studentPortfolio.tabcontent:not(.hidden) { display: block !important; }
+/* Pastikan tidak muncul di login */
+#loginBox ~ #teacherPortfolio,
+#loginBox ~ #studentPortfolio { display: none !important; }
+</style>
+
 </head>
 <body>
 <header>
@@ -6654,6 +6666,12 @@ function deleteQuizPackage(id) {
   db.quizzes = db.quizzes.filter(function(q){ return q.id !== id; });
   saveDB();
   renderQuizPackageList();
+  // Hapus juga di Supabase supaya tidak kembali
+  if (window.sb && navigator.onLine) {
+    window.sb.from('quizzes').delete().eq('id', id).then(function(res){
+      if (res.error) console.warn('Gagal hapus di server', res.error);
+    });
+  }
 }
 
 function studentVisibleQuizzes() {
@@ -8116,7 +8134,8 @@ try { onLoginRoleChange(); } catch (e) {}
     
   window.openPortfolioFile = function(subId){
     var sub = getSubmissions().find(function(s){ return s.id === subId; });
-    if (!sub || !sub.fileData) { alert('File tidak tersedia'); return; }
+    if (!sub) { alert('Data tidak ditemukan'); return; }
+    if (!sub.fileData) { alert('File tidak tersimpan di data. Minta siswa kirim ulang.'); return; }
     var w = window.open('');
     if (!w) { alert('Izinkan popup'); return; }
     var isImg = (sub.fileName||'').match(/\.(jpg|jpeg|png|gif)$/i) || (sub.fileData||'').indexOf('image/') !== -1;
@@ -8429,7 +8448,8 @@ try { onLoginRoleChange(); } catch (e) {}
 
   window.openPortfolioFile = function(subId){
     var sub = getSubmissions().find(function(s){ return s.id === subId; });
-    if (!sub || !sub.fileData) { alert('File tidak tersedia'); return; }
+    if (!sub) { alert('Data tidak ditemukan'); return; }
+    if (!sub.fileData) { alert('File tidak tersimpan di data. Minta siswa kirim ulang.'); return; }
     var w = window.open('');
     if (!w) { alert('Izinkan popup'); return; }
     var isImg = (sub.fileName||'').match(/\.(jpg|jpeg|png|gif)$/i) || (sub.fileData||'').indexOf('image/') !== -1;
@@ -9281,7 +9301,8 @@ window.bersihDobek = function(){}; // matikan patch lama yang bikin dobel
 
   window.openPortfolioFile = function(subId){
     var sub = getSubmissions().find(function(s){ return s.id === subId; });
-    if (!sub || !sub.fileData) { alert('File tidak tersedia'); return; }
+    if (!sub) { alert('Data tidak ditemukan'); return; }
+    if (!sub.fileData) { alert('File tidak tersimpan di data. Minta siswa kirim ulang.'); return; }
     var w = window.open('');
     if (!w) { alert('Izinkan popup'); return; }
     var isImg = (sub.fileName||'').match(/\.(jpg|jpeg|png|gif)$/i) || (sub.fileData||'').indexOf('image/') !== -1;
@@ -9425,7 +9446,8 @@ window.bersihDobek = function(){}; // matikan patch lama yang bikin dobel
 
   window.openPortfolioFile = function(subId){
     var sub = getSubmissions().find(function(s){ return s.id === subId; });
-    if (!sub || !sub.fileData) { alert('File tidak tersedia'); return; }
+    if (!sub) { alert('Data tidak ditemukan'); return; }
+    if (!sub.fileData) { alert('File tidak tersimpan di data. Minta siswa kirim ulang.'); return; }
     var w = window.open('');
     if (!w) { alert('Izinkan popup'); return; }
     var isImg = (sub.fileName||'').match(/\.(jpg|jpeg|png|gif)$/i) || (sub.fileData||'').indexOf('image/') !== -1;
@@ -9572,7 +9594,19 @@ window.bersihDobek = function(){}; // matikan patch lama yang bikin dobel
     var port = getPortfolios().find(function(p){ return p.id === portId; }) || {};
     var subs = getSubmissions().filter(function(s){ return s.portfolioId === portId; });
     var w = window.open('', '_blank');
-    var h = '<!DOCTYPE html><html><head><meta charset="utf-8"><title>Portofolio</title><style>body{font-family:system-ui;padding:16px} table{width:100%;border-collapse:collapse;font-size:12px} th,td{border:1px solid #ccc;padding:5px} th{background:#f1f7f3}</style></head><body>';
+    var h = '<!DOCTYPE html><html><head><meta charset="utf-8"><title>Portofolio</title><style>body{font-family:system-ui;padding:16px} table{width:100%;border-collapse:collapse;font-size:12px} th,td{border:1px solid #ccc;padding:5px} th{background:#f1f7f3}</style>
+<style>
+/* Portofolio hanya tampil sesuai role */
+#teacherPortfolio, #studentPortfolio { display: none !important; }
+body.role-teacher #teacherPortfolio.tabcontent:not(.hidden) { display: block !important; }
+body.role-student #studentPortfolio.tabcontent:not(.hidden),
+body.role-parent #studentPortfolio.tabcontent:not(.hidden) { display: block !important; }
+/* Pastikan tidak muncul di login */
+#loginBox ~ #teacherPortfolio,
+#loginBox ~ #studentPortfolio { display: none !important; }
+</style>
+
+</head><body>';
     h += '<h2>' + esc(port.title||'') + '</h2><table><thead><tr><th>Nama</th><th>Kelas</th><th>Teks</th><th>File</th><th>Nilai</th><th>Waktu</th></tr></thead><tbody>';
     subs.forEach(function(s){
       h += '<tr><td>' + esc(s.name) + '</td><td>' + esc(s.kelas) + '</td><td>' + esc(s.text||'') + '</td><td>' + esc(s.fileName||'-') + '</td><td>' + new Date(s.submittedAt||0).toLocaleString('id-ID') + '</td></tr>';
@@ -9616,11 +9650,22 @@ window.bersihDobek = function(){}; // matikan patch lama yang bikin dobel
       '<div class="actions"><button type="button" onclick="submitPortfolio(\'' + portId + '\')">Kirim</button></div>';
   };
 
-  window.submitPortfolio = function(portId){
+  window.submitPortfolio = async function(portId){
     var text = (document.getElementById('portSubmitText').value || '').trim();
     var fileInput = document.getElementById('portSubmitFile');
     var file = fileInput && fileInput.files && fileInput.files[0];
     if (!text && !file) { alert('Isi tulisan atau pilih file'); return; }
+    var fileData = '', fileName = '';
+    if (file) {
+      if (file.size > 3*1024*1024) { alert('File terlalu besar (maks 3MB)'); return; }
+      fileName = file.name;
+      fileData = await new Promise(function(res, rej){
+        var r = new FileReader();
+        r.onload = function(){ res(r.result); };
+        r.onerror = function(){ rej('Gagal baca file'); };
+        r.readAsDataURL(file);
+      });
+    }
     var item = {
       id: 'psub_' + Date.now(),
       portfolioId: portId,
@@ -9628,7 +9673,8 @@ window.bersihDobek = function(){}; // matikan patch lama yang bikin dobel
       name: (window.current && window.current.name) || '',
       kelas: (window.current && window.current.kelas) || '',
       text: text,
-      fileName: file ? file.name : '',
+      fileName: fileName,
+      fileData: fileData,
       submittedAt: Date.now()
     };
     var list = getSubmissions().filter(function(s){ return !(s.portfolioId===portId && s.username===item.username); });
@@ -9649,7 +9695,8 @@ window.bersihDobek = function(){}; // matikan patch lama yang bikin dobel
 
   window.openPortfolioFile = function(subId){
     var sub = getSubmissions().find(function(s){ return s.id === subId; });
-    if (!sub || !sub.fileData) { alert('File tidak tersedia'); return; }
+    if (!sub) { alert('Data tidak ditemukan'); return; }
+    if (!sub.fileData) { alert('File tidak tersimpan di data. Minta siswa kirim ulang.'); return; }
     var w = window.open('');
     if (!w) { alert('Izinkan popup'); return; }
     var isImg = (sub.fileName||'').match(/\.(jpg|jpeg|png|gif)$/i) || (sub.fileData||'').indexOf('image/') !== -1;
