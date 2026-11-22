@@ -5219,7 +5219,7 @@ function renderRaport() {
     var praktikList = (db.assessments || []).filter(function(a){ return a.username === s.u; });
     html += '<div style="margin-top:12px"><h4 style="margin:0 0 6px;color:#0b7a55;font-size:13px">Nilai Ujian Praktik</h4>';
     if (praktikList.length) {
-      html += '<table class="raport-table" style="font-size:12px"><thead><tr><th>Materi</th><th>Nilai</th><th>Catatan</th><th>Tanggal</th></tr></thead><tbody>';
+      html += '<table class="raport-table" style="font-size:12px"><thead><tr><th>Materi</th><th>Nilai</th><th></th><th>Catatan</th><th>Tanggal</th></tr></thead><tbody>';
       for (var p = 0; p < praktikList.length; p++) {
         var pr = praktikList[p];
         html += '<tr><td class="left">' + esc(pr.item||'') + '</td><td><b>' + esc(pr.grade||'-') + '</b></td><td>' + esc(pr.note||'-') + '</td><td>' + esc(pr.date||'-') + '</td></tr>';
@@ -5356,7 +5356,7 @@ function renderAssessmentTable() {
     box.innerHTML = '<p class="muted">Belum ada penilaian.</p>';
     return;
   }
-  var html = '<h3>Riwayat</h3><table><thead><tr><th>Siswa</th><th>Materi</th><th>Nilai</th><th>Catatan</th></tr></thead><tbody>';
+  var html = '<h3>Riwayat</h3><table><thead><tr><th>Siswa</th><th>Materi</th><th>Nilai</th><th></th><th>Catatan</th></tr></thead><tbody>';
   for (var i = db.assessments.length - 1; i >= 0; i--) {
     var a = db.assessments[i];
     html += '<tr><td>' + esc(a.name) + ' <span class="muted">(' + esc(a.username) + ')</span></td><td>' + esc(a.item) + '</td><td><b>' + esc(a.grade) + '</b></td><td>' + esc(a.note || '') + '</td></tr>';
@@ -6643,8 +6643,8 @@ function editQuizPackage(id) {
   document.getElementById('qzClass').value = pkg.kelas;
   document.getElementById('qzTopic').value = pkg.topic || '';
   var box = document.getElementById('qzEditorList');
-  box.innerHTML = '';
-  for (var i = 0; i < pkg.questions.length; i++) addQuizQuestion(pkg.questions[i]);
+  if (box) box.innerHTML = '';
+  for (var i = 0; i < (pkg.questions || []).length; i++) addQuizQuestion(pkg.questions[i]);
   showToast('Paket dimuat ke form editor', 'success');
   window.scrollTo({ top: 0, behavior: 'smooth' });
 }
@@ -6654,6 +6654,12 @@ function deleteQuizPackage(id) {
   db.quizzes = db.quizzes.filter(function(q){ return q.id !== id; });
   saveDB();
   renderQuizPackageList();
+  if (window.sb && navigator.onLine) {
+    window.sb.from('quizzes').delete().eq('id', id).then(function(res){
+      if (res.error) console.warn('Hapus server gagal', res.error);
+      else console.log('Hapus di Supabase berhasil');
+    });
+  }
 }
 
 function studentVisibleQuizzes() {
@@ -8113,7 +8119,36 @@ try { onLoginRoleChange(); } catch (e) {}
       } finally {
         loadingPromise = null;
       }
-    })();
+    
+  window.loadPortfolioSubmissions = async function(){
+    if (!window.sb || !navigator.onLine) return;
+    try {
+      var res = await window.sb.from('portfolio_submissions').select('*');
+      if (res.data) {
+        var list = res.data.map(function(r){ return r.data || r; });
+        window.db.portfolioSubmissions = list;
+        if (typeof saveDB === 'function') saveDB();
+        if (document.getElementById('portfolioSubmissionsView')) {
+          // refresh if open
+        }
+      }
+    } catch(e) { console.warn(e); }
+  };
+
+  window.deletePortfolioSubmission = function(subId){
+    if (!confirm('Hapus kiriman ini?')) return;
+    window.db.portfolioSubmissions = getSubmissions().filter(function(s){ return s.id !== subId; });
+    if (typeof saveDB === 'function') saveDB();
+    if (window.sb && navigator.onLine) {
+      window.sb.from('portfolio_submissions').delete().eq('id', subId);
+    }
+    alert('Kiriman dihapus');
+    // refresh current view if possible
+    var view = document.getElementById('portfolioSubmissionsView');
+    if (view) view.innerHTML = '';
+  };
+
+})();
     return loadingPromise;
   };
 
@@ -8392,6 +8427,35 @@ try { onLoginRoleChange(); } catch (e) {}
   } else {
     setTimeout(init, 350);
   }
+
+  window.loadPortfolioSubmissions = async function(){
+    if (!window.sb || !navigator.onLine) return;
+    try {
+      var res = await window.sb.from('portfolio_submissions').select('*');
+      if (res.data) {
+        var list = res.data.map(function(r){ return r.data || r; });
+        window.db.portfolioSubmissions = list;
+        if (typeof saveDB === 'function') saveDB();
+        if (document.getElementById('portfolioSubmissionsView')) {
+          // refresh if open
+        }
+      }
+    } catch(e) { console.warn(e); }
+  };
+
+  window.deletePortfolioSubmission = function(subId){
+    if (!confirm('Hapus kiriman ini?')) return;
+    window.db.portfolioSubmissions = getSubmissions().filter(function(s){ return s.id !== subId; });
+    if (typeof saveDB === 'function') saveDB();
+    if (window.sb && navigator.onLine) {
+      window.sb.from('portfolio_submissions').delete().eq('id', subId);
+    }
+    alert('Kiriman dihapus');
+    // refresh current view if possible
+    var view = document.getElementById('portfolioSubmissionsView');
+    if (view) view.innerHTML = '';
+  };
+
 })();
 
 /* ===== HOT NEWS ===== */
@@ -9210,6 +9274,35 @@ window.bersihDobek = function(){}; // matikan patch lama yang bikin dobel
   setTimeout(start, 400);
   if(document.readyState === 'loading') document.addEventListener('DOMContentLoaded', start);
   else start();
+
+  window.loadPortfolioSubmissions = async function(){
+    if (!window.sb || !navigator.onLine) return;
+    try {
+      var res = await window.sb.from('portfolio_submissions').select('*');
+      if (res.data) {
+        var list = res.data.map(function(r){ return r.data || r; });
+        window.db.portfolioSubmissions = list;
+        if (typeof saveDB === 'function') saveDB();
+        if (document.getElementById('portfolioSubmissionsView')) {
+          // refresh if open
+        }
+      }
+    } catch(e) { console.warn(e); }
+  };
+
+  window.deletePortfolioSubmission = function(subId){
+    if (!confirm('Hapus kiriman ini?')) return;
+    window.db.portfolioSubmissions = getSubmissions().filter(function(s){ return s.id !== subId; });
+    if (typeof saveDB === 'function') saveDB();
+    if (window.sb && navigator.onLine) {
+      window.sb.from('portfolio_submissions').delete().eq('id', subId);
+    }
+    alert('Kiriman dihapus');
+    // refresh current view if possible
+    var view = document.getElementById('portfolioSubmissionsView');
+    if (view) view.innerHTML = '';
+  };
+
 })();
 </script>
 
@@ -9320,6 +9413,35 @@ window.bersihDobek = function(){}; // matikan patch lama yang bikin dobel
   setTimeout(function(){
     if(typeof loadMarqueeText === 'function') loadMarqueeText();
   }, 600);
+
+  window.loadPortfolioSubmissions = async function(){
+    if (!window.sb || !navigator.onLine) return;
+    try {
+      var res = await window.sb.from('portfolio_submissions').select('*');
+      if (res.data) {
+        var list = res.data.map(function(r){ return r.data || r; });
+        window.db.portfolioSubmissions = list;
+        if (typeof saveDB === 'function') saveDB();
+        if (document.getElementById('portfolioSubmissionsView')) {
+          // refresh if open
+        }
+      }
+    } catch(e) { console.warn(e); }
+  };
+
+  window.deletePortfolioSubmission = function(subId){
+    if (!confirm('Hapus kiriman ini?')) return;
+    window.db.portfolioSubmissions = getSubmissions().filter(function(s){ return s.id !== subId; });
+    if (typeof saveDB === 'function') saveDB();
+    if (window.sb && navigator.onLine) {
+      window.sb.from('portfolio_submissions').delete().eq('id', subId);
+    }
+    alert('Kiriman dihapus');
+    // refresh current view if possible
+    var view = document.getElementById('portfolioSubmissionsView');
+    if (view) view.innerHTML = '';
+  };
+
 })();
 </script>
 
@@ -9395,11 +9517,12 @@ window.bersihDobek = function(){}; // matikan patch lama yang bikin dobel
     if (!subs.length) { el.innerHTML = '<div class="notice">Belum ada kiriman.</div>'; return; }
     var html = '<h3>Kiriman: ' + esc(port.title||'') + '</h3>';
     html += '<button type="button" onclick="downloadPortfolioCSV(\'' + portId + '\')">Download Excel</button>';
-    html += '<div class="tablewrap" style="margin-top:10px"><table><thead><tr><th>Nama</th><th>Kelas</th><th>Teks</th><th>File</th><th>Nilai</th></tr></thead><tbody>';
+    html += '<div class="tablewrap" style="margin-top:10px"><table><thead><tr><th>Nama</th><th>Kelas</th><th>Teks</th><th>File</th><th>Nilai</th><th></th></tr></thead><tbody>';
     subs.forEach(function(s){
       var fileBtn = s.fileData ? ' <button type="button" style="padding:4px 8px;font-size:12px" onclick="openPortfolioFile(\'' + s.id + '\')">Lihat</button>' : '';
       html += '<tr><td>' + esc(s.name) + '</td><td>' + esc(s.kelas) + '</td><td>' + esc(s.text||'') + '</td><td>' + esc(s.fileName||'-') + fileBtn + '</td>';
-      html += '<td><input type="number" min="0" max="100" value="' + (s.nilai||'') + '" id="nilai_' + s.id + '" style="width:70px"></td></tr>';
+      html += '<td><input type="number" min="0" max="100" value="' + (s.nilai||'') + '" id="nilai_' + s.id + '" style="width:70px"></td>';
+      html += '<td><button type="button" class="danger" style="padding:4px 8px;font-size:12px" onclick="deletePortfolioSubmission(\'' + s.id + '\')">Hapus</button></td></tr>';
     });
     html += '</tbody></table></div>';
     html += '<button type="button" onclick="savePortfolioGrades(\'' + portId + '\')">Simpan Nilai</button>';
@@ -9481,6 +9604,13 @@ window.bersihDobek = function(){}; // matikan patch lama yang bikin dobel
     list.push(item);
     window.db.portfolioSubmissions = list;
     if (typeof saveDB === 'function') saveDB();
+    // Simpan ke Supabase
+    if (window.sb && navigator.onLine) {
+      var row = { id: item.id, portfolioId: item.portfolioId, username: item.username, name: item.name, kelas: item.kelas, data: item };
+      window.sb.from('portfolio_submissions').upsert(row, { onConflict: 'id' }).then(function(res){
+        if (res.error) console.warn('Gagal simpan submission', res.error);
+      });
+    }
     document.getElementById('studentPortfolioForm').classList.add('hidden');
     renderStudentPortfolio();
     alert('Terkirim');
@@ -9493,7 +9623,7 @@ window.bersihDobek = function(){}; // matikan patch lama yang bikin dobel
     var sp = document.getElementById('studentPortfolio');
     if (tp) tp.style.display = (id === 'teacherPortfolio') ? 'block' : 'none';
     if (sp) sp.style.display = (id === 'studentPortfolio') ? 'block' : 'none';
-    if (id === 'teacherPortfolio') renderPortfolioAdmin();
+    if (id === 'teacherPortfolio') { renderPortfolioAdmin(); loadPortfolioSubmissions(); }
     if (id === 'studentPortfolio') renderStudentPortfolio();
   };
   // hide by default
@@ -9501,6 +9631,35 @@ window.bersihDobek = function(){}; // matikan patch lama yang bikin dobel
   var sp = document.getElementById('studentPortfolio');
   if (tp) tp.style.display = 'none';
   if (sp) sp.style.display = 'none';
+
+  window.loadPortfolioSubmissions = async function(){
+    if (!window.sb || !navigator.onLine) return;
+    try {
+      var res = await window.sb.from('portfolio_submissions').select('*');
+      if (res.data) {
+        var list = res.data.map(function(r){ return r.data || r; });
+        window.db.portfolioSubmissions = list;
+        if (typeof saveDB === 'function') saveDB();
+        if (document.getElementById('portfolioSubmissionsView')) {
+          // refresh if open
+        }
+      }
+    } catch(e) { console.warn(e); }
+  };
+
+  window.deletePortfolioSubmission = function(subId){
+    if (!confirm('Hapus kiriman ini?')) return;
+    window.db.portfolioSubmissions = getSubmissions().filter(function(s){ return s.id !== subId; });
+    if (typeof saveDB === 'function') saveDB();
+    if (window.sb && navigator.onLine) {
+      window.sb.from('portfolio_submissions').delete().eq('id', subId);
+    }
+    alert('Kiriman dihapus');
+    // refresh current view if possible
+    var view = document.getElementById('portfolioSubmissionsView');
+    if (view) view.innerHTML = '';
+  };
+
 })();
 </script>
 
