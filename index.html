@@ -6651,13 +6651,20 @@ function editQuizPackage(id) {
 
 function deleteQuizPackage(id) {
   if (!confirm('Hapus paket soal ini? Riwayat nilai tetap ada.')) return;
+  // Tandai sebagai dihapus supaya tidak di-merge kembali
+  if (!window._deletedQuizIds) window._deletedQuizIds = {};
+  window._deletedQuizIds[id] = true;
   db.quizzes = db.quizzes.filter(function(q){ return q.id !== id; });
   saveDB();
   renderQuizPackageList();
   if (window.sb && navigator.onLine) {
     window.sb.from('quizzes').delete().eq('id', id).then(function(res){
-      if (res.error) console.warn('Hapus server gagal', res.error);
-      else console.log('Hapus di Supabase berhasil');
+      if (res.error) {
+        console.warn('Hapus server gagal', res.error);
+        alert('Gagal hapus di server. Cek RLS tabel quizzes.');
+      } else {
+        console.log('Hapus di Supabase berhasil');
+      }
     });
   }
 }
@@ -8106,7 +8113,13 @@ try { onLoginRoleChange(); } catch (e) {}
         if (!results[0].error) db.journals = mergeByKey(db.journals, byTable.journals, journalKey);
         if (!results[1].error) db.assessments = mergeByKey(db.assessments, byTable.assessments, assessmentKey);
         if (!results[2].error) db.materials = mergeByKey(db.materials, byTable.materials, materialKey);
-        if (!results[3].error) db.quizzes = mergeByKey(db.quizzes, byTable.quizzes, idKey);
+        if (!results[3].error) {
+          var incoming = byTable.quizzes || [];
+          if (window._deletedQuizIds) {
+            incoming = incoming.filter(function(q){ return !window._deletedQuizIds[q.id]; });
+          }
+          db.quizzes = mergeByKey(db.quizzes, incoming, idKey);
+        }
         if (!results[4].error) db.quizAttempts = mergeByKey(db.quizAttempts, byTable.quizAttempts, idKey);
         if (!results[5].error && byTable.hotnews) {
           db.hotnews = mergeByKey(db.hotnews || [], byTable.hotnews, idKey);
