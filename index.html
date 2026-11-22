@@ -8558,6 +8558,12 @@ function deleteHotNews(id) {
   saveDB();
   renderHotNewsAdmin();
   showToast('Hot News dihapus', 'success');
+  // Hapus juga di Supabase
+  if (window.sb && navigator.onLine) {
+    window.sb.from('hotnews').delete().eq('id', id).then(function(res){
+      if (res.error) console.warn('Hapus Hot News server gagal', res.error);
+    });
+  }
 }
 function renderHotNewsAdmin() {
   var el = document.getElementById('hotNewsAdminList');
