@@ -3422,6 +3422,17 @@ header {
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <link rel="apple-touch-icon" href="logo.jpg">
 <link rel="icon" type="image/jpeg" href="logo.jpg">
+
+<style>
+body.role-parent #journalView input[type="checkbox"],
+body.role-parent #journalView button,
+body.role-parent #studentJournal input,
+body.role-parent #studentJournal button {
+  pointer-events: none !important;
+  opacity: 0.6;
+}
+</style>
+
 </head>
 <body>
 <header>
@@ -4772,6 +4783,10 @@ function onHaidToggle() {
 
 
 function saveJournal() {
+  if (current && current.role === 'parent') {
+    alert('Mode orang tua hanya bisa melihat jurnal. Tidak bisa mengisi atau mengubah.');
+    return;
+  }
   var dateInput = document.getElementById('journalDate');
   var date = dateInput ? dateInput.value : '';
   if (!date) { alert('Pilih tanggal'); return; }
@@ -6731,6 +6746,10 @@ function renderStudentQuizList() {
 var quizLive = null; // { id, pkg, index, answers, locked }
 
 function startQuiz(quizId) {
+  if (current && current.role === 'parent') {
+    alert('Mode orang tua hanya bisa melihat. Tidak bisa mengerjakan soal.');
+    return;
+  }
   var pkg = null;
   for (var i = 0; i < db.quizzes.length; i++) if (db.quizzes[i].id === quizId) pkg = db.quizzes[i];
   if (!pkg) return;
