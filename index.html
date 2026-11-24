@@ -4377,6 +4377,7 @@ const DEFAULT_PRAKTIS = [{"id": "prak_wudhu", "title": "Tata cara wudu", "kelas"
 const KEY = 'epai_offline_v1';
 const DEFAULT_MATERIALS = [];
 
+function getMats(){ return (window.db && window.db.materials) || db.materials || []; }
 function loadDB() {
   try {
     var raw = JSON.parse(localStorage.getItem(KEY) || 'null');
@@ -9252,7 +9253,7 @@ window.bersihDobek = function(){}; // matikan patch lama yang bikin dobel
     var kc = document.getElementById('learnClass') ? document.getElementById('learnClass').value : '7';
     var sm = document.getElementById('learnSemester') ? document.getElementById('learnSemester').value : '1';
     var mats = getMats().filter(function(m){
-      return String(m.kelas) === String(kc) && String(m.semester) === String(sm) && String(m.desc||'').indexOf('[PAIBP]') > -1;
+      return String(m.kelas) === String(kc) && String(m.semester) === String(sm);
     });
     mats.sort(function(a, b){ return (b.createdAt || 0) - (a.createdAt || 0); });
 
