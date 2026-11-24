@@ -4377,7 +4377,6 @@ const DEFAULT_PRAKTIS = [{"id": "prak_wudhu", "title": "Tata cara wudu", "kelas"
 const KEY = 'epai_offline_v1';
 const DEFAULT_MATERIALS = [];
 
-function getMats(){ return (window.db && window.db.materials) || db.materials || []; }
 function loadDB() {
   try {
     var raw = JSON.parse(localStorage.getItem(KEY) || 'null');
@@ -4395,32 +4394,7 @@ function loadDB() {
   } catch (e) {}
   return { journals: [], assessments: [], materials: [], praktis: DEFAULT_PRAKTIS.slice(), quizzes: [], quizAttempts: [], studentPasswords: {}, teacherPassword: '9090' };
 }
-function saveDB() {
-  try {
-    var clone = JSON.parse(JSON.stringify(db));
-    // Hapus data gambar besar dari localStorage (tetap di memori & Supabase)
-    if (clone.materials) {
-      clone.materials.forEach(function(m){
-        if (m.imageData && m.imageData.length > 50000) delete m.imageData;
-        if (m.pdfData && m.pdfData.length > 50000) delete m.pdfData;
-        if (m.fileData && m.fileData.length > 50000) delete m.fileData;
-      });
-    }
-    if (clone.portfolioSubmissions) {
-      clone.portfolioSubmissions.forEach(function(s){
-        if (s.fileData && s.fileData.length > 50000) delete s.fileData;
-      });
-    }
-    localStorage.setItem(KEY, JSON.stringify(clone));
-  } catch(e) {
-    console.warn('localStorage penuh, data besar diabaikan', e);
-    try {
-      // fallback minimal
-      var minimal = { journals: db.journals||[], assessments: db.assessments||[], quizzes: db.quizzes||[], materials: (db.materials||[]).map(function(m){ var c=Object.assign({},m); delete c.imageData; delete c.pdfData; return c; }) };
-      localStorage.setItem(KEY, JSON.stringify(minimal));
-    } catch(e2) {}
-  }
-}
+function saveDB() { localStorage.setItem(KEY, JSON.stringify(db)); }
 var db = loadDB();
 
 
@@ -9253,7 +9227,7 @@ window.bersihDobek = function(){}; // matikan patch lama yang bikin dobel
     var kc = document.getElementById('learnClass') ? document.getElementById('learnClass').value : '7';
     var sm = document.getElementById('learnSemester') ? document.getElementById('learnSemester').value : '1';
     var mats = getMats().filter(function(m){
-      return String(m.kelas) === String(kc) && String(m.semester) === String(sm);
+      return String(m.kelas) === String(kc) && String(m.semester) === String(sm) && String(m.desc||'').indexOf('[PAIBP]') > -1;
     });
     mats.sort(function(a, b){ return (b.createdAt || 0) - (a.createdAt || 0); });
 
