@@ -3679,7 +3679,7 @@ function renderIqra() {
       <button type="button" class="active" onclick="showTab('journal',this)">Jurnal ibadah</button>
       <button type="button" onclick="showTab('studentPractice',this)">Nilai praktik</button>
       <button type="button" onclick="showTab('studentChart',this)">Grafik</button>
-      <button type="button" onclick="showTab('learning',this)">Materi</button>
+      <button type="button" onclick="showTab('learning',this)">📚 Materi PAIBP</button>
       <button type="button" onclick="showTab('studentPraktis',this)">Ibadah praktis</button>
       <button type="button" onclick="showTab('studentHotNews',this)">🔥 Hot News</button>
       <button type="button" onclick="showTab('studentQuran',this)">Al-Qur'an</button>
@@ -3872,7 +3872,7 @@ function renderIqra() {
       <button type="button" onclick="showTab('assessment',this)">Ujian praktik</button>
       <button type="button" onclick="showTab('teacherChart',this)">Grafik kelas</button>
       <button type="button" onclick="showTab('rekapKelas',this)">Rekap kelas</button>
-      <button type="button" onclick="showTab('materials',this)">Materi</button>
+      <button type="button" onclick="showTab('materials',this)">📚 Materi PAIBP</button>
       <button type="button" onclick="showTab('teacherPraktis',this)">Ibadah praktis</button>
       <button type="button" onclick="showTab('teacherHotNews',this)">🔥 Hot News</button>
       <button type="button" onclick="showTab('teacherQuiz',this)">Kelola soal</button>
@@ -4285,7 +4285,7 @@ function renderIqra() {
     </div>
 
     <div id="materials" class="card tabcontent hidden">
-      <h2>Kelola materi</h2>
+      <h2>Kelola Materi PAIBP</h2>
       <div class="grid">
         <div><label>Kelas</label><select id="matClass"><option>7</option><option>8</option><option>9</option></select></div>
         <div><label>Semester</label><select id="matSemester"><option value="1">1</option><option value="2">2</option></select></div>
@@ -4668,6 +4668,7 @@ function showTab(id, btn) {
   if (id === 'teacherHotNews') renderHotNewsAdmin();
   if (id === 'overview') initTeacher();
   if (id === 'teacherQuiz') { ensureQuizEditor(); renderQuizPackageList(); }
+  if (id === 'materials') { if (typeof renderMaterialAdmin === 'function') renderMaterialAdmin(); }
   if (id === 'quizRecap') { fillQuizRecapFilters(); renderQuizRecap(); }
   if (id === 'raportJurnal') { initRaportFilters(); }
   if (id === 'studentData') { if (typeof renderStudentJournals === 'function') renderStudentJournals(); }
