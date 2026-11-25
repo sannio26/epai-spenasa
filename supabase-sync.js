@@ -259,8 +259,15 @@
         // Materials
         if (!extra[3].error && extra[3].data) {
           db.materials = extra[3].data.map(function (row) {
-            return (row.data && typeof row.data === 'object') ? row.data : row;
+            var d = (row.data && typeof row.data === 'object') ? Object.assign({}, row.data) : Object.assign({}, row);
+            d.id = d.id || row.id;
+            d.kelas = String(d.kelas != null && d.kelas !== '' ? d.kelas : row.kelas);
+            d.semester = String(d.semester != null && d.semester !== '' ? d.semester : row.semester);
+            if (d.chapter == null) d.chapter = row.chapter;
+            if (!d.title) d.title = row.title;
+            return d;
           });
+          window.db = db;
         }
 
         // Hot News
@@ -275,6 +282,7 @@
         if (typeof current !== 'undefined' && current) {
           if (typeof showPage === 'function' && typeof currentPage !== 'undefined' && currentPage) showPage(currentPage);
           if (typeof renderMaterials === 'function') renderMaterials();
+          if (typeof window.renderLessons === 'function') window.renderLessons();
           if (typeof renderPraktis === 'function') renderPraktis();
           if (typeof renderHotNews === 'function') renderHotNews();
         }
