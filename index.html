@@ -8109,6 +8109,12 @@ try { onLoginRoleChange(); } catch (e) {}
     (remoteRows || []).forEach(function (row) {
       var item = unwrap(row);
       if (!item) return;
+      if (keyFn === materialKey) {
+        item = Object.assign({}, row, item);
+        item.id = item.id || row.id;
+        item.kelas = String(row.kelas != null ? row.kelas : item.kelas);
+        item.semester = String(row.semester != null ? row.semester : item.semester);
+      }
       var k = keyFn(item);
       if (k) map[k] = item;
     });
@@ -8133,6 +8139,9 @@ try { onLoginRoleChange(); } catch (e) {}
     catch (e) { reportError('localStorage', e); }
   }
   function renderAfterLoad() {
+    window.db = db;
+    try { if (typeof renderLessons === 'function') renderLessons(); } catch (e) { reportError('renderLessons', e); }
+    try { if (typeof renderMaterialAdmin === 'function') renderMaterialAdmin(); } catch (e) { reportError('renderMaterialAdmin', e); }
     try { if (typeof renderStudentJournals === 'function') renderStudentJournals(); } catch (e) { reportError('renderStudentJournals', e); }
     try { if (typeof renderTeacherOverview === 'function') renderTeacherOverview(); } catch (e) { reportError('renderTeacherOverview', e); }
     try { if (typeof initTeacher === 'function') initTeacher(); } catch (e) { reportError('initTeacher', e); }
@@ -9324,20 +9333,9 @@ window.bersihDobek = function(){}; // matikan patch lama yang bikin dobel
     }, 120);
   };
 
-  // Bersihkan materi lama (tanpa marker) secara periodik, tanpa loadAll yang bikin race
-  function sapuBersih(){
-    try{
-      var mats = getMats();
-      if(!mats.length) return;
-      var sisa = mats.filter(function(m){ return String(m.desc || '').indexOf('[PAIBP]') > -1; });
-      if(sisa.length !== mats.length){
-        window.db.materials = sisa;
-        if(typeof saveDB === 'function') saveDB();
-        if(typeof renderLessons === 'function') renderLessons();
-        if(typeof renderMaterialAdmin === 'function') renderMaterialAdmin();
-      }
-    }catch(e){}
-  }
+  // Materi lama tetap sah: marker PAIBP hanya menyimpan folder/PDF tambahan.
+  // Jangan hapus materi hasil sinkronisasi karena tidak memiliki marker.
+  function sapuBersih(){ }
 
   function start(){
     rapikanFormGuru();
