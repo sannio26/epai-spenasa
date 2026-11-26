@@ -4936,7 +4936,7 @@ function renderLessons() {
   var items = [];
   for (var i = 0; i < db.materials.length; i++) {
     var m = db.materials[i];
-    if (m.kelas === grade && m.semester === sem) items.push(m);
+    if (Number(m.kelas) === grade && Number(m.semester) === sem) items.push(m);
   }
   items.sort(function(a,b){ return a.chapter - b.chapter; });
   var list = document.getElementById('lessonList');
@@ -5890,6 +5890,7 @@ async function saveMaterial() {
         data: clean
       };
       var res = await sbClient.from('materials').upsert(row, { onConflict: 'id' });
+      if (res.error) { delete row.pdfName; res = await sbClient.from('materials').upsert(row, { onConflict: 'id' }); }
       if (res.error) {
         console.warn('INTEGRASI saveMaterial supabase error', res.error);
         showToast('Gagal simpan ke server: ' + (res.error.message || ''), 'error');

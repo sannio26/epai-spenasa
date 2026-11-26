@@ -258,15 +258,22 @@
 
         // Materials
         if (!extra[3].error && extra[3].data) {
-          db.materials = extra[3].data.map(function (row) {
+          var serverMats = extra[3].data.map(function (row) {
             var d = (row.data && typeof row.data === 'object') ? Object.assign({}, row.data) : Object.assign({}, row);
             d.id = d.id || row.id;
-            d.kelas = String(d.kelas != null && d.kelas !== '' ? d.kelas : row.kelas);
-            d.semester = String(d.semester != null && d.semester !== '' ? d.semester : row.semester);
-            if (d.chapter == null) d.chapter = row.chapter;
+            d.kelas = Number(d.kelas != null && d.kelas !== '' ? d.kelas : row.kelas);
+            d.semester = Number(d.semester != null && d.semester !== '' ? d.semester : row.semester);
+            d.chapter = Number(d.chapter != null && d.chapter !== '' ? d.chapter : row.chapter);
             if (!d.title) d.title = row.title;
             return d;
           });
+          // Jangan hilangkan materi lokal yang belum sempat tersimpan ke server
+          var serverIds = {};
+          serverMats.forEach(function (m) { serverIds[String(m.id)] = 1; });
+          (db.materials || []).forEach(function (m) {
+            if (m && m.id && !serverIds[String(m.id)] && current && current.role === 'teacher') serverMats.push(m);
+          });
+          db.materials = serverMats;
           window.db = db;
         }
 
