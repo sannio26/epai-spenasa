@@ -68,10 +68,10 @@
 
         if (savedItem) {
           var payloadData = Object.assign({}, savedItem);
-          if (payloadData.pdfData && payloadData.pdfData.length > 1500000) {
-            payloadData.pdfData = '';
+          if (payloadData.pdfData) {
+            delete payloadData.pdfData;
             if (typeof showToast === 'function') {
-              showToast('PDF > 1.5MB hanya lokal. Gunakan Link PDF Drive untuk siswa.', 'error');
+              showToast('File PDF hanya tersimpan di HP ini. Untuk siswa, pakai Link PDF Google Drive.', 'error');
             }
           }
           sb.from('materials').upsert({
@@ -203,7 +203,7 @@
   }
   window.loadMarqueeFromCloud = loadMarqueeFromCloud;
   setTimeout(loadMarqueeFromCloud, 800);
-  setInterval(loadMarqueeFromCloud, 15000);
+  setInterval(function(){ if (document.visibilityState === 'visible') loadMarqueeFromCloud(); }, 180000);
     // 6. Sinkronisasi Hapus Paket Soal
     if (typeof window.deleteQuizPackage === 'function' && !window._epaiDelQuizHooked) {
       window._epaiDelQuizHooked = true;
@@ -299,7 +299,7 @@
     }
     window.syncAllTables = syncAllTables;
     syncAllTables();
-    setInterval(syncAllTables, 30000);
+    setInterval(function(){ if (document.visibilityState === 'visible' && navigator.onLine) syncAllTables(); }, 300000);
   }
 
   if (document.readyState === 'loading') {

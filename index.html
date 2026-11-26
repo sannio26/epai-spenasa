@@ -8057,8 +8057,8 @@ try { onLoginRoleChange(); } catch (e) {}
 /* E-PAIBP Supabase Realtime v2 — lapisan sinkronisasi saja; UI utama tidak diubah. */
 (function () {
   'use strict';
-  var SUPABASE_URL = 'https://amhfsdjarrlsbnaferbn.supabase.co';
-  var SUPABASE_KEY = 'sb_publishable_KdyJrDYqjktLkvzPVmDZ_A_ZKfdN3tk';
+  var SUPABASE_URL = 'https://qzxhzfzkpatgpkvalsxb.supabase.co';
+  var SUPABASE_KEY = 'sb_publishable_5FplYISAhSqpk-j7vMEELA_CdDh5S1W';
   var TABLES = ['journals', 'assessments', 'materials', 'quizzes', 'quizAttempts', 'hotnews', 'students'];
   var sb = null;
   var realtimeSubscribed = false;
@@ -8089,7 +8089,7 @@ try { onLoginRoleChange(); } catch (e) {}
       badge.textContent = '● ONLINE - Realtime';
       badge.style.background = '#047857';
     } else {
-      badge.textContent = '● ONLINE - Polling 7 dtk';
+      badge.textContent = '● ONLINE - Hemat kuota';
       badge.style.background = '#1d4ed8';
     }
   }
@@ -8154,7 +8154,37 @@ try { onLoginRoleChange(); } catch (e) {}
     try { if (typeof updateTugasBadge === 'function') updateTugasBadge(); } catch (e) {}
   }
 
-  window.loadAll = async function () {
+  // HEMAT KUOTA: hanya kirim baris yang benar-benar berubah
+  function stableStr(v){
+    if (v === null || typeof v !== 'object') return JSON.stringify(v === undefined ? null : v);
+    if (Array.isArray(v)) return '[' + v.map(stableStr).join(',') + ']';
+    return '{' + Object.keys(v).sort().filter(function(k){ return v[k] !== undefined; }).map(function(k){ return JSON.stringify(k) + ':' + stableStr(v[k]); }).join(',') + '}';
+  }
+  var sentSig = Object.create(null);
+  function rowKey(table, r){ return table === 'journals' ? (r.username + '|' + r.date) : String(r.id); }
+  function rememberRemote(table, list){
+    var m = sentSig[table] || (sentSig[table] = Object.create(null));
+    (list || []).forEach(function(r){ if (r && r.data) m[rowKey(table, r)] = stableStr(r.data); });
+  }
+  function onlyChanged(table, rows){
+    var m = sentSig[table] || (sentSig[table] = Object.create(null));
+    return rows.filter(function(r){ return m[rowKey(table, r)] !== stableStr(r.data); });
+  }
+  function markSent(table, rows){
+    var m = sentSig[table] || (sentSig[table] = Object.create(null));
+    rows.forEach(function(r){ m[rowKey(table, r)] = stableStr(r.data); });
+  }
+  var lastLoadAt = 0, loadQueued = null, MIN_LOAD_GAP = 25000;
+  window.loadAll = function (force) {
+    var now = Date.now();
+    if (!force && now - lastLoadAt < MIN_LOAD_GAP) {
+      if (!loadQueued) loadQueued = setTimeout(function(){ loadQueued = null; window.loadAll(true); }, MIN_LOAD_GAP - (now - lastLoadAt));
+      return Promise.resolve();
+    }
+    lastLoadAt = now;
+    return realLoadAll();
+  };
+  var realLoadAll = async function () {
     if (!sb || typeof db === 'undefined') return;
     if (loadingPromise) return loadingPromise;
     loadingPromise = (async function () {
@@ -8173,6 +8203,7 @@ try { onLoginRoleChange(); } catch (e) {}
         var byTable = Object.create(null);
         TABLES.forEach(function (t, i) {
           byTable[t] = results[i] && results[i].data ? results[i].data : [];
+          if (results[i] && !results[i].error) rememberRemote(t, byTable[t]);
         });
 
         if (!results[0].error) db.journals = mergeByKey(db.journals, byTable.journals, journalKey);
@@ -8261,7 +8292,7 @@ try { onLoginRoleChange(); } catch (e) {}
       persistLocal();
     }
     clearTimeout(refreshTimer);
-    refreshTimer = setTimeout(function () { window.loadAll(); }, 180);
+    refreshTimer = setTimeout(function () { window.loadAll(); }, 3000);
   }
 
   function startRealtime() {
@@ -8304,7 +8335,10 @@ try { onLoginRoleChange(); } catch (e) {}
       };
     }).filter(function (r) { return r.username && r.date; });
     if (!rows.length) return;
+    rows = onlyChanged('journals', rows);
+    if (!rows.length) return;
     var result = await sb.from('journals').upsert(rows, { onConflict: 'username,date' });
+    if (!result.error) markSent('journals', rows);
     if (result.error) reportError('upsert journals', result.error);
   }
   async function upsertMaterials() {
@@ -8312,6 +8346,7 @@ try { onLoginRoleChange(); } catch (e) {}
       var clean = {};
       for (var k in m) if (Object.prototype.hasOwnProperty.call(m, k) && k !== 'pdfData') clean[k] = m[k];
       var mid = m.id || m._mid || ('m_' + Date.now() + '_' + Math.random().toString(36).slice(2, 9));
+      if (!m.id && !m._mid) m.id = mid;
       return {
         id: mid,
         kelas: Number(m.kelas), semester: Number(m.semester),
@@ -8321,7 +8356,10 @@ try { onLoginRoleChange(); } catch (e) {}
       };
     }).filter(function (r) { return r.id && Number.isFinite(r.kelas) && Number.isFinite(r.semester) && Number.isFinite(r.chapter); });
     if (!rows.length) return;
+    rows = onlyChanged('materials', rows);
+    if (!rows.length) return;
     var result = await sb.from('materials').upsert(rows, { onConflict: 'id' });
+    if (!result.error) markSent('materials', rows);
     if (result.error) reportError('upsert materials', result.error);
   }
   async function syncAssessments() {
@@ -8349,7 +8387,10 @@ try { onLoginRoleChange(); } catch (e) {}
       };
     }).filter(function (q) { return q.id != null; });
     if (!rows.length) return;
+    rows = onlyChanged('quizzes', rows);
+    if (!rows.length) return;
     var result = await sb.from('quizzes').upsert(rows, { onConflict: 'id' });
+    if (!result.error) markSent('quizzes', rows);
     if (result.error) {
       // Kompatibilitas untuk tabel yang hanya menyediakan kolom id + data.
       var minimal = rows.map(function (q) { return { id: q.id, data: q.data }; });
@@ -8366,7 +8407,10 @@ try { onLoginRoleChange(); } catch (e) {}
       };
     }).filter(function (a) { return a.id != null; });
     if (!rows.length) return;
+    rows = onlyChanged('quizAttempts', rows);
+    if (!rows.length) return;
     var result = await sb.from('quizAttempts').upsert(rows, { onConflict: 'id' });
+    if (!result.error) markSent('quizAttempts', rows);
     if (result.error) {
       // Kompatibilitas untuk tabel yang hanya menyediakan kolom id + data.
       var minimal = rows.map(function (a) { return { id: a.id, data: a.data }; });
@@ -8390,7 +8434,10 @@ try { onLoginRoleChange(); } catch (e) {}
       };
     }).filter(function (h) { return h.id != null; });
     if (!rows.length) return;
+    rows = onlyChanged('hotnews', rows);
+    if (!rows.length) return;
     var result = await sb.from('hotnews').upsert(rows, { onConflict: 'id' });
+    if (!result.error) markSent('hotnews', rows);
     if (result.error) {
       var minimal = rows.map(function (h) { return { id: h.id, data: h.data }; });
       var fallback = await sb.from('hotnews').upsert(minimal, { onConflict: 'id' });
@@ -8473,9 +8520,9 @@ try { onLoginRoleChange(); } catch (e) {}
     }
     if (!pollTimer) {
       pollTimer = setInterval(function () {
-        if (document.visibilityState === 'visible' && navigator.onLine) window.loadAll();
+        if (document.visibilityState === 'visible' && navigator.onLine && !realtimeSubscribed) window.loadAll();
         updateBadge();
-      }, 7000);
+      }, 120000);
     }
   }
 
@@ -9048,8 +9095,8 @@ window.saveMarqueeText = function(){
 // PATCH 2 - 16 Nov: Marquee tarik langsung + PDF fallback
 setInterval(function(){
   try{
-    if(!window.sb) return;
-    window.sb.from('hotnews').select('*').eq('id','__marquee__').maybeSingle().then(function(res){
+    if(!window.sb || document.visibilityState !== 'visible') return;
+    window.sb.from('hotnews').select('id,title,desc,data').eq('id','__marquee__').maybeSingle().then(function(res){
       if(res.error || !res.data) return;
       var d = res.data.data || res.data;
       var t = (d.desc || d.title || '').trim();
@@ -9066,7 +9113,7 @@ setInterval(function(){
       }
     });
   }catch(e){}
-}, 5000);
+}, 180000);
 
 window.downloadMaterialPdf = function(kelas, semester, chapter, mid){
   try{
@@ -9466,7 +9513,7 @@ window.bersihDobek = function(){}; // matikan patch lama yang bikin dobel
 
   // Poll lebih sering & lebih robust
   setInterval(function(){
-    if(!window.sb || !navigator.onLine) return;
+    if(!window.sb || !navigator.onLine || document.visibilityState !== 'visible') return;
     window.sb.from('hotnews').select('id,title,desc,data').eq('id', MARQUEE_ID).maybeSingle()
       .then(function(res){
         if(res.error || !res.data) return;
@@ -9480,7 +9527,7 @@ window.bersihDobek = function(){}; // matikan patch lama yang bikin dobel
         }
       })
       .catch(function(){});
-  }, 4000);
+  }, 180000);
 
   // load awal
   setTimeout(function(){
@@ -9668,6 +9715,7 @@ window.bersihDobek = function(){}; // matikan patch lama yang bikin dobel
     var file = fileInput && fileInput.files && fileInput.files[0];
     if (!text && !file) { alert('Isi tulisan atau pilih file'); return; }
     var fileData = '', fileName = '';
+    if (file && file.size > 400 * 1024) { alert('File terlalu besar (maks 400 KB). Kecilkan foto, atau unggah ke Google Drive lalu tempel link-nya di tulisan.'); return; }
     if (file) {
       fileName = file.name;
       fileData = await new Promise(function(res){ var r=new FileReader(); r.onload=function(){res(r.result);}; r.readAsDataURL(file); });
