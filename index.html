@@ -4241,11 +4241,10 @@ function renderIqra() {
       <input id="prakVideo" placeholder="https://www.youtube.com/watch?v=...">
       <label>Link PDF (opsional)</label>
       <input id="prakPdf" placeholder="https://drive.google.com/...">
-      <label>Foto / infografis (opsional)</label>
-      <input type="file" id="prakImageFile" accept="image/*" onchange="previewPrakImage(this)">
-      <input type="hidden" id="prakImageUrl" value="">
+      <label>Link Foto Drive (opsional)</label>
+      <input id="prakImageUrl" placeholder="https://drive.google.com/file/d/.../view" oninput="previewLinkImage('prakImageUrl','prakImagePreview')">
       <div class="img-preview-box" id="prakImagePreview"></div>
-      <p class="muted" style="font-size:12px">Gambar otomatis dikompres (max lebar 1280px, target ~450KB). Ketuk foto di siswa untuk memperbesar.</p>
+      <p class="muted" style="font-size:12px">Tempel link Google Drive. Pastikan share Anyone with the link. Ketuk foto di siswa untuk memperbesar.</p>
       <div class="actions">
         <button type="button" onclick="savePraktis()">Simpan</button>
         <button type="button" class="secondary" onclick="resetPraktisForm()">Batal / Baru</button>
@@ -4272,11 +4271,10 @@ function renderIqra() {
       <input id="hotVideo" placeholder="https://www.youtube.com/watch?v=...">
       <label>Link PDF / file (opsional)</label>
       <input id="hotPdf" placeholder="https://drive.google.com/...">
-      <label>Foto / gambar (opsional)</label>
-      <input type="file" id="hotImageFile" accept="image/*" onchange="previewHotImage(this)">
-      <input type="hidden" id="hotImageUrl" value="">
+      <label>Link Foto Drive (opsional)</label>
+      <input id="hotImageUrl" placeholder="https://drive.google.com/file/d/.../view" oninput="previewLinkImage('hotImageUrl','hotImagePreview')">
       <div class="img-preview-box" id="hotImagePreview"></div>
-      <p class="muted" style="font-size:12px">Gambar otomatis dikompres. Ketuk foto di siswa untuk memperbesar.</p>
+      <p class="muted" style="font-size:12px">Tempel link Google Drive. Pastikan share Anyone with the link. Ketuk foto di siswa untuk memperbesar.</p>
       <div class="actions">
         <button type="button" onclick="saveHotNews()">Simpan Hot News</button>
         <button type="button" class="secondary" onclick="resetHotNewsForm()">Batal / Baru</button>
@@ -4297,16 +4295,10 @@ function renderIqra() {
       <input id="matVideo" placeholder="https://www.youtube.com/watch?v=... atau https://youtu.be/...">
       <label>Link PDF / file materi (opsional)</label>
       <input id="matUrl" placeholder="https://drive.google.com/... atau link PDF">
-      <label>📁 Upload File PDF langsung (opsional, maks 25MB)</label>
-      <input type="file" id="matPdfFile" accept=".pdf,application/pdf" onchange="previewMatPdf(this)">
-      <input id="matPdfData" type="hidden" value="">
-      <input id="matPdfName" type="hidden" value="">
-      <p class="muted" id="matPdfInfo" style="font-size:12px">Kalau tidak diunggah, siswa memakai link Drive di atas.</p>
-      <label>Foto / infografis (opsional)</label>
-      <input type="file" id="matImageFile" accept="image/*" onchange="previewMatImage(this)">
-      <input id="matImageUrl" type="hidden" value="">
+      <label>Link Foto Drive (opsional)</label>
+      <input id="matImageUrl" placeholder="https://drive.google.com/file/d/.../view (pastikan share Anyone with the link)" oninput="previewLinkImage('matImageUrl','matImagePreview')">
       <div class="img-preview-box" id="matImagePreview"></div>
-      <p class="muted" style="font-size:12px">Gambar otomatis dikompres (max lebar 1280px, target ~450KB) lalu tampil di materi siswa.</p>
+      <p class="muted" style="font-size:12px">Tempel link Google Drive foto/infografis. Foto akan tampil di kartu siswa. Pastikan file di-share "Anyone with the link".</p>
       <p class="muted" style="font-size:12px">Siswa melihat: infografis, tombol video, dan PDF.</p>
       <div class="actions" id="materialFormActions">
         <button type="button" id="saveMaterialBtn" onclick="saveMaterial()">Simpan materi</button>
@@ -4949,7 +4941,9 @@ function renderLessons() {
     var m = items[i];
     html += '<div class="material"><span class="pill">Bab ' + m.chapter + '</span><h3>' + esc(m.title) + '</h3>';
     if (m.image) {
-      html += '<img class="material-img" src="' + m.image + '" alt="Infografis ' + esc(m.title) + '" loading="lazy" onclick="openImgLightbox(this.src)" title="Ketuk untuk memperbesar">';
+      var imgSrc = (typeof driveToDirectImage === "function") ? driveToDirectImage(m.image) : m.image;
+      html += '<img class="material-img" src="' + imgSrc + '" alt="Infografis ' + esc(m.title) + '" loading="lazy" style="max-width:100%;border-radius:12px;cursor:zoom-in" onclick="openImgLightbox(\'' + String(imgSrc).replace(/'/g,"\\'") + '\')">';
+      html += '<p style="margin:4px 0 8px"><button type="button" class="secondary" style="padding:5px 10px;font-size:12px" onclick="openImgLightbox(\'' + String(imgSrc).replace(/'/g,"\\'") + '\')">🔍 Perbesar foto</button></p>';
     }
     html += '<div style="white-space:pre-wrap">' + esc(m.desc || '') + '</div>';
     if (m.video) {
@@ -5418,7 +5412,6 @@ function resetPraktisForm() {
   var v = document.getElementById('prakVideo'); if (v) v.value = '';
   var p = document.getElementById('prakPdf'); if (p) p.value = '';
   var hi = document.getElementById('prakImageUrl'); if (hi) hi.value = '';
-  var fi = document.getElementById('prakImageFile'); if (fi) fi.value = '';
   var pv = document.getElementById('prakImagePreview'); if (pv) pv.innerHTML = '';
 }
 
@@ -5466,7 +5459,10 @@ function editPraktis(id) {
       var hi = document.getElementById('prakImageUrl');
       var pv = document.getElementById('prakImagePreview');
       if (hi) hi.value = m.image || '';
-      if (pv) pv.innerHTML = m.image ? ('<img src="' + m.image + '" alt="Pratinjau">') : '';
+      if (pv && m.image) {
+        var src = (typeof driveToDirectImage === "function") ? driveToDirectImage(m.image) : m.image;
+        pv.innerHTML = '<img src="' + src + '" alt="Pratinjau" style="max-width:100%;max-height:180px;border-radius:10px">';
+      } else if (pv) pv.innerHTML = '';
       window.scrollTo(0, 0);
       return;
     }
@@ -5525,7 +5521,9 @@ function renderStudentPraktis() {
     html += '<span class="pill">Ibadah praktis</span>';
     html += '<h3 style="margin:8px 0 6px">' + esc(m.title) + '</h3>';
     if (m.image) {
-      html += '<img class="material-img" src="' + m.image + '" alt="' + esc(m.title) + '" loading="lazy" onclick="openImgLightbox(this.src)" title="Ketuk untuk memperbesar">';
+      var imgSrc = (typeof driveToDirectImage === "function") ? driveToDirectImage(m.image) : m.image;
+      html += '<img class="material-img" src="' + imgSrc + '" alt="' + esc(m.title) + '" loading="lazy" style="max-width:100%;border-radius:12px;cursor:zoom-in" onclick="openImgLightbox(\'' + String(imgSrc).replace(/'/g,"\\'") + '\')">';
+      html += '<p style="margin:4px 0 8px"><button type="button" class="secondary" style="padding:5px 10px;font-size:12px" onclick="openImgLightbox(\'' + String(imgSrc).replace(/'/g,"\\'") + '\')">🔍 Perbesar foto</button></p>';
     }
     html += '<div style="white-space:pre-wrap">' + esc(m.desc || '') + '</div>';
     if (m.video) {
@@ -5609,12 +5607,19 @@ function optimizeImageFile(file, opts) {
 function setImagePreview(boxId, hiddenId, dataUrl, infoText) {
   var box = document.getElementById(boxId);
   var hidden = document.getElementById(hiddenId);
-  if (hidden) hidden.value = dataUrl || '';
+  if (hidden && dataUrl !== undefined) hidden.value = dataUrl || '';
   if (box) {
     if (!dataUrl) { box.innerHTML = ''; return; }
-    box.innerHTML = '<img src="' + dataUrl + '" alt="Pratinjau">' +
+    var src = (typeof driveToDirectImage === 'function') ? driveToDirectImage(dataUrl) : dataUrl;
+    box.innerHTML = '<img src="' + src + '" alt="Pratinjau" style="max-width:100%;max-height:180px;border-radius:10px" onerror="this.style.display=\'none\'">' +
       (infoText ? '<p class="muted" style="font-size:11px;margin:6px 0 0">' + infoText + '</p>' : '');
   }
+}
+
+function previewLinkImage(inputId, previewId) {
+  var inp = document.getElementById(inputId);
+  var url = inp ? inp.value.trim() : '';
+  setImagePreview(previewId, inputId, url, url ? 'Pratinjau dari link' : '');
 }
 
 function previewPrakImage(input) {
@@ -5737,8 +5742,7 @@ var materialEditKey = null;
 var editingMid = null; // id materi yang sedang diedit
 
 function resetMaterialForm() {
-  var ids = ['matChapter', 'matTitle', 'matDesc', 'matVideo', 'matUrl',
-             'matPdfData', 'matPdfName', 'matImageUrl'];
+  var ids = ['matChapter', 'matTitle', 'matDesc', 'matVideo', 'matUrl', 'matImageUrl'];
   for (var i = 0; i < ids.length; i++) {
     var field = document.getElementById(ids[i]);
     if (field) field.value = '';
@@ -5748,17 +5752,8 @@ function resetMaterialForm() {
   if (classEl) classEl.value = '7';
   if (semesterEl) semesterEl.value = '1';
 
-  var pdfFile = document.getElementById('matPdfFile');
-  var imageFile = document.getElementById('matImageFile');
-  if (pdfFile) pdfFile.value = '';
-  if (imageFile) imageFile.value = '';
   var imagePreview = document.getElementById('matImagePreview');
   if (imagePreview) imagePreview.innerHTML = '';
-  var pdfInfo = document.getElementById('matPdfInfo');
-  if (pdfInfo) {
-    pdfInfo.textContent = 'Kalau tidak diunggah, siswa memakai link Drive di atas.';
-    pdfInfo.classList.remove('edit-file-info');
-  }
 
   materialEditKey = null;
   editingMid = null;
@@ -5806,30 +5801,13 @@ function editMaterialById(mid) {
   document.getElementById('matVideo').value = found.video || '';
   document.getElementById('matUrl').value = found.url || '';
 
-  // File lama tetap dipertahankan jika pengguna tidak memilih file pengganti.
-  var oldPdfData = found.pdfData || '';
-  if (!oldPdfData) {
-    try { oldPdfData = localStorage.getItem(pdfStoreKey(found.kelas, found.semester, found.chapter)) || ''; } catch (e) {}
-  }
-  document.getElementById('matPdfData').value = oldPdfData;
-  document.getElementById('matPdfName').value = found.pdfName || '';
-  document.getElementById('matPdfFile').value = '';
-  var pdfInfo = document.getElementById('matPdfInfo');
-  if (pdfInfo) {
-    pdfInfo.textContent = found.pdfName
-      ? 'File lama: ' + found.pdfName + ' (upload baru untuk ganti)'
-      : 'Tidak ada PDF yang diunggah. Upload baru jika ingin menambahkan PDF.';
-    pdfInfo.classList.add('edit-file-info');
-  }
-
   document.getElementById('matImageUrl').value = found.image || '';
-  document.getElementById('matImageFile').value = '';
   var imagePreview = document.getElementById('matImagePreview');
-  if (imagePreview) {
-    imagePreview.innerHTML = found.image
-      ? '<img src="' + String(found.image).replace(/"/g, '&quot;') +
-        '" alt="Infografis lama" style="max-width:100%;max-height:180px;border-radius:10px">'
-      : '';
+  if (imagePreview && found.image) {
+    var src = (typeof driveToDirectImage === "function") ? driveToDirectImage(found.image) : found.image;
+    imagePreview.innerHTML = '<img src="' + src + '" alt="Infografis lama" style="max-width:100%;max-height:180px;border-radius:10px">';
+  } else if (imagePreview) {
+    imagePreview.innerHTML = '';
   }
 
   var saveBtn = document.getElementById('saveMaterialBtn');
@@ -5853,9 +5831,7 @@ async function saveMaterial() {
     desc: (document.getElementById('matDesc').value || '').trim(),
     url: (document.getElementById('matUrl').value || '').trim(),
     video: (document.getElementById('matVideo') && document.getElementById('matVideo').value.trim()) || '',
-    image: (document.getElementById('matImageUrl') && document.getElementById('matImageUrl').value) || '',
-    pdfData: (document.getElementById('matPdfData') && document.getElementById('matPdfData').value) || '',
-    pdfName: (document.getElementById('matPdfName') && document.getElementById('matPdfName').value) || ''
+    image: (document.getElementById('matImageUrl') && document.getElementById('matImageUrl').value) || ''
   };
   if (!item.title || !item.chapter) { alert('Isi judul dan nomor bab'); return; }
 
@@ -7764,6 +7740,30 @@ function renderDzikir() {
   gameShell('📿 Arti Dzikir', html);
 }
 
+
+/* === Utilitas Link Google Drive untuk gambar hemat kuota === */
+function extractDriveId(url) {
+  if (!url) return null;
+  url = String(url).trim();
+  var m = url.match(/[?&]id=([a-zA-Z0-9_-]{20,})/);
+  if (m) return m[1];
+  m = url.match(/\/d\/([a-zA-Z0-9_-]{20,})/);
+  if (m) return m[1];
+  m = url.match(/id=([a-zA-Z0-9_-]{20,})/);
+  if (m) return m[1];
+  return null;
+}
+function driveToDirectImage(url) {
+  if (!url) return url;
+  var id = extractDriveId(url);
+  if (!id) return url; // bukan link Drive, pakai apa adanya
+  // Format yang biasanya bisa langsung di <img src>
+  return 'https://drive.google.com/uc?export=view&id=' + id;
+}
+function isDriveLink(url) {
+  return !!extractDriveId(url);
+}
+
 function openImgLightbox(src) {
   var box = document.getElementById('imgLightbox');
   var img = document.getElementById('imgLightboxImg');
@@ -8618,7 +8618,6 @@ function resetHotNewsForm() {
   document.getElementById('hotVideo').value = '';
   document.getElementById('hotPdf').value = '';
   document.getElementById('hotImageUrl').value = '';
-  document.getElementById('hotImageFile').value = '';
   var box = document.getElementById('hotImagePreview');
   if (box) box.innerHTML = '';
 }
@@ -8753,7 +8752,9 @@ function renderStudentHotNews() {
     html += '<span class="pill" style="background:#fde8e8;color:#c0392b">🔥 Hot News</span>';
     html += '<h3 style="margin:8px 0 6px">' + esc(m.title) + '</h3>';
     if (m.image) {
-      html += '<img class="material-img" src="' + m.image + '" alt="' + esc(m.title) + '" loading="lazy" onclick="openImgLightbox(this.src)">';
+      var imgSrc = (typeof driveToDirectImage === "function") ? driveToDirectImage(m.image) : m.image;
+      html += '<img class="material-img" src="' + imgSrc + '" alt="' + esc(m.title) + '" loading="lazy" style="max-width:100%;border-radius:12px;cursor:zoom-in" onclick="openImgLightbox(\'' + String(imgSrc).replace(/'/g,"\\'") + '\')">';
+      html += '<p style="margin:4px 0 8px"><button type="button" class="secondary" style="padding:5px 10px;font-size:12px" onclick="openImgLightbox(\'' + String(imgSrc).replace(/'/g,"\\'") + '\')">🔍 Perbesar foto</button></p>';
     }
     html += '<div style="white-space:pre-wrap">' + esc(m.desc || '') + '</div>';
     if (m.video) {
@@ -9236,8 +9237,8 @@ window.bersihDobek = function(){}; // matikan patch lama yang bikin dobel
         url: (document.getElementById('matUrl').value || '').trim(),
         video: (document.getElementById('matVideo').value || '').trim(),
         image: (document.getElementById('matImageUrl') && document.getElementById('matImageUrl').value) || '',
-        pdfData: (document.getElementById('matPdfData') && document.getElementById('matPdfData').value) || '',
-        pdfName: (document.getElementById('matPdfName') && document.getElementById('matPdfName').value) || '',
+        
+        
         createdAt: Date.now()
       };
 
@@ -9347,7 +9348,9 @@ window.bersihDobek = function(){}; // matikan patch lama yang bikin dobel
       html += '<span class="pill">Kelas ' + esc(m.kelas) + ' • Semester ' + esc(m.semester) + '</span>';
       html += '<h3 style="margin:8px 0 6px">' + esc(m.title) + '</h3>';
       if(m.image){
-        html += '<img class="material-img" src="' + m.image + '" alt="' + esc(m.title) + '" loading="lazy" onclick="openImgLightbox(this.src)">';
+        var imgSrc = (typeof driveToDirectImage === "function") ? driveToDirectImage(m.image) : m.image;
+        html += '<img class="material-img" src="' + imgSrc + '" alt="' + esc(m.title) + '" loading="lazy" style="max-width:100%;border-radius:12px;cursor:zoom-in" onclick="openImgLightbox(\'' + String(imgSrc).replace(/'/g,"\\'") + '\')">';
+        html += '<p style="margin:4px 0 8px"><button type="button" class="secondary" style="padding:5px 10px;font-size:12px" onclick="openImgLightbox(\'' + String(imgSrc).replace(/'/g,"\\'") + '\')">🔍 Perbesar foto</button></p>';
       }
       if(clean){
         html += '<div style="white-space:pre-wrap;margin-bottom:8px">' + esc(clean) + '</div>';
@@ -9646,8 +9649,8 @@ window.bersihDobek = function(){}; // matikan patch lama yang bikin dobel
     html += '<button type="button" onclick="downloadPortfolioCSV(\'' + portId + '\')">Download Excel</button>';
     html += '<div class="tablewrap" style="margin-top:10px"><table><thead><tr><th>Nama</th><th>Kelas</th><th>Teks</th><th>File</th><th>Nilai</th><th></th></tr></thead><tbody>';
     subs.forEach(function(s){
-      var fileBtn = s.fileData ? ' <button type="button" style="padding:4px 8px;font-size:12px" onclick="openPortfolioFile(\'' + s.id + '\')">Lihat</button>' : '';
-      html += '<tr><td>' + esc(s.name) + '</td><td>' + esc(s.kelas) + '</td><td>' + esc(s.text||'') + '</td><td>' + esc(s.fileName||'-') + fileBtn + '</td>';
+      var linkHtml = s.link ? '<a href="' + esc(s.link) + '" target="_blank" rel="noopener" class="btn-link pdf" style="padding:4px 8px;font-size:12px">Buka Link</a>' : (s.fileName || '-');
+      html += '<tr><td>' + esc(s.name) + '</td><td>' + esc(s.kelas) + '</td><td>' + esc(s.text||'') + '</td><td>' + linkHtml + '</td>';
       html += '<td><input type="number" min="0" max="100" value="' + (s.nilai||'') + '" id="nilai_' + s.id + '" style="width:70px"></td>';
       html += '<td><button type="button" class="danger" style="padding:4px 8px;font-size:12px" onclick="deletePortfolioSubmission(\'' + s.id + '\')">Hapus</button></td></tr>';
     });
@@ -9683,8 +9686,8 @@ window.bersihDobek = function(){}; // matikan patch lama yang bikin dobel
   window.downloadPortfolioCSV = function(portId){
     var port = getPortfolios().find(function(p){ return p.id === portId; }) || {};
     var subs = getSubmissions().filter(function(s){ return s.portfolioId === portId; });
-    var lines = [['Nama','Kelas','Teks','File','Nilai']];
-    subs.forEach(function(s){ lines.push([s.name||'', s.kelas||'', s.text||'', s.fileName||'', s.nilai||'']); });
+    var lines = [['Nama','Kelas','Teks','Link','Nilai']];
+    subs.forEach(function(s){ lines.push([s.name||'', s.kelas||'', s.text||'', s.link||s.fileName||'', s.nilai||'']); });
     var csv = lines.map(function(r){ return r.map(function(v){ return '"' + String(v==null?'':v).replace(/"/g,'""') + '"'; }).join(','); }).join('\n');
     var a = document.createElement('a');
     a.href = URL.createObjectURL(new Blob(['\ufeff'+csv], {type:'text/csv'}));
@@ -9713,26 +9716,29 @@ window.bersihDobek = function(){}; // matikan patch lama yang bikin dobel
     var port = getPortfolios().find(function(p){ return p.id === portId; });
     if (!port) return;
     form.classList.remove('hidden');
-    form.innerHTML = '<h3>' + esc(port.title) + '</h3><textarea id="portSubmitText" rows="3"></textarea><input type="file" id="portSubmitFile" accept="image/*,.pdf"><button type="button" onclick="submitPortfolio(\'' + portId + '\')">Kirim</button>';
+    form.innerHTML = '<h3>' + esc(port.title) + '</h3><textarea id="portSubmitText" rows="3" placeholder="Tulis jawaban / keterangan..."></textarea><label style="margin-top:8px">Link Drive (foto atau PDF tugas)</label><input id="portSubmitLink" placeholder="https://drive.google.com/..."><button type="button" onclick="submitPortfolio(\'' + portId + '\')">Kirim</button>';
   };
 
   window.submitPortfolio = async function(portId){
     var text = (document.getElementById('portSubmitText').value || '').trim();
-    var fileInput = document.getElementById('portSubmitFile');
-    var file = fileInput && fileInput.files && fileInput.files[0];
-    if (!text && !file) { alert('Isi tulisan atau pilih file'); return; }
-    var fileData = '', fileName = '';
-    if (file && file.size > 400 * 1024) { alert('File terlalu besar (maks 400 KB). Kecilkan foto, atau unggah ke Google Drive lalu tempel link-nya di tulisan.'); return; }
-    if (file) {
-      fileName = file.name;
-      fileData = await new Promise(function(res){ var r=new FileReader(); r.onload=function(){res(r.result);}; r.readAsDataURL(file); });
-    }
-    var item = { id:'psub_'+Date.now(), portfolioId:portId, username:(window.current&&window.current.username)||'', name:(window.current&&window.current.name)||'', kelas:(window.current&&window.current.kelas)||'', text:text, fileName:fileName, fileData:fileData, submittedAt:Date.now() };
+    var linkEl = document.getElementById('portSubmitLink');
+    var link = linkEl ? (linkEl.value || '').trim() : '';
+    if (!text && !link) { alert('Isi tulisan atau tempel Link Drive'); return; }
+    var item = {
+      id: 'psub_' + Date.now(),
+      portfolioId: portId,
+      username: (window.current && window.current.username) || '',
+      name: (window.current && window.current.name) || '',
+      kelas: (window.current && window.current.kelas) || '',
+      text: text,
+      link: link,
+      submittedAt: Date.now()
+    };
     var list = getSubmissions().filter(function(s){ return !(s.portfolioId===portId && s.username===item.username); });
     list.push(item);
     window.db.portfolioSubmissions = list;
     if (typeof saveDB === 'function') saveDB();
-    // Simpan ke Supabase
+    // Simpan ke Supabase (hanya link, tidak ada base64)
     if (window.sb && navigator.onLine) {
       var row = { id: item.id, portfolioId: item.portfolioId, username: item.username, name: item.name, kelas: item.kelas, data: item };
       window.sb.from('portfolio_submissions').upsert(row, { onConflict: 'id' }).then(function(res){
