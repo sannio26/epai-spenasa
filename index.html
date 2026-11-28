@@ -9797,6 +9797,449 @@ window.bersihDobek = function(){}; // matikan patch lama yang bikin dobel
 })();
 </script>
 
-<script src="supabase-sync.js"></script>
-</body>
-</html>
+<!-- Firebase SDK (Compat v10 untuk HTML Statis) -->
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
+
+<script>
+/* E-PAIBP Firebase Realtime Database & Google Drive Media Fix (Siap Pakai) */
+(function () {
+  'use strict';
+
+  var firebaseConfig = {
+    apiKey: "AIzaSyCqdY6B3HezYONsCLyL3cDl2q4ugv3GIbU",
+    authDomain: "e-paibp.firebaseapp.com",
+    databaseURL: "https://e-paibp-default-rtdb.firebaseio.com",
+    projectId: "e-paibp",
+    storageBucket: "e-paibp.firebasestorage.app",
+    messagingSenderId: "842531280950",
+    appId: "1:842531280950:web:a97b35a5879305a8562097"
+  };
+
+  var DRIVE_UPLOAD_WEBAPP_URL = "https://script.google.com/macros/s/AKfycbw9VZYLTPi2kJ4hF81OtEpajxKytLoGWQdwLYIalD6amy4x0OkTA2xVjQssGb2gZEArbQ/exec";
+
+  var rtdb = null;
+  var badge = null;
+  var syncTimer = null;
+  var isApplyingRemote = false;
+
+  function ensureBadge() {
+    if (badge || !document.body) return;
+    badge = document.createElement('div');
+    badge.id = 'epaiRealtimeStatus';
+    badge.style.cssText = 'position:fixed;top:76px;right:12px;z-index:40;padding:5px 9px;border-radius:20px;background:#047857;color:#fff;font:700 10px/1.3 system-ui,sans-serif;box-shadow:0 2px 8px #0003;pointer-events:none;';
+    document.body.appendChild(badge);
+    updateBadge();
+  }
+
+  function updateBadge() {
+    ensureBadge();
+    if (!badge) return;
+    if (!navigator.onLine) {
+      badge.textContent = '● OFFLINE - Cache Lokal';
+      badge.style.background = '#b45309';
+    } else if (rtdb) {
+      badge.textContent = '● ONLINE - Firebase Realtime';
+      badge.style.background = '#047857';
+    } else {
+      badge.textContent = '● LOKAL - Cek Config Firebase';
+      badge.style.background = '#475569';
+    }
+  }
+
+  function extractDriveId(url) {
+    var u = String(url || '').trim();
+    if (!u) return '';
+    var m = u.match(/drive\.google\.com\/file\/d\/([a-zA-Z0-9_-]+)/) ||
+            u.match(/drive\.google\.com\/open\?id=([a-zA-Z0-9_-]+)/) ||
+            u.match(/drive\.google\.com\/uc\?(?:[^#]*&)?id=([a-zA-Z0-9_-]+)/) ||
+            u.match(/drive\.google\.com\/thumbnail\?(?:[^#]*&)?id=([a-zA-Z0-9_-]+)/) ||
+            u.match(/lh3\.googleusercontent\.com\/d\/([a-zA-Z0-9_-]+)/);
+    return (m && m[1]) ? m[1] : '';
+  }
+
+  function normalizeDriveImg(url) {
+    var u = String(url || '').trim();
+    if (!u || u.indexOf('data:image') === 0) return u;
+    var id = extractDriveId(u);
+    return id ? ('https://drive.google.com/thumbnail?id=' + id + '&sz=w1000') : u;
+  }
+
+  function normalizeDriveVideo(url) {
+    var u = String(url || '').trim();
+    if (!u) return '';
+    var id = extractDriveId(u);
+    return id ? ('https://drive.google.com/file/d/' + id + '/preview') : u;
+  }
+
+  function normalizeItemMedia(item) {
+    if (!item || typeof item !== 'object') return item;
+    if (item.image) item.image = normalizeDriveImg(item.image);
+    if (item.img) item.img = normalizeDriveImg(item.img);
+    if (item.photo) item.photo = normalizeDriveImg(item.photo);
+    if (item.foto) item.foto = normalizeDriveImg(item.foto);
+    if (item.video && extractDriveId(item.video)) item.video = normalizeDriveVideo(item.video);
+    if (item.videoUrl && extractDriveId(item.videoUrl)) item.videoUrl = normalizeDriveVideo(item.videoUrl);
+    return item;
+  }
+
+  function normalizeAllDBMedia() {
+    if (typeof db === 'undefined') return;
+    ['materials', 'hotnews', 'praktis', 'portfolios', 'portfolioSubmissions'].forEach(function (key) {
+      if (Array.isArray(db[key])) {
+        db[key].forEach(normalizeItemMedia);
+      }
+    });
+  }
+
+  function fixBrokenImagesInDOM() {
+    var imgs = document.querySelectorAll('img');
+    imgs.forEach(function (img) {
+      var src = img.getAttribute('src') || '';
+      var id = extractDriveId(src);
+      if (id && src.indexOf('drive.google.com/thumbnail') === -1) {
+        img.src = 'https://drive.google.com/thumbnail?id=' + id + '&sz=w1000';
+      }
+      if (!img.dataset.epaiErrBound) {
+        img.dataset.epaiErrBound = '1';
+        img.addEventListener('error', function () {
+          var curId = extractDriveId(img.src);
+          if (curId && !img.dataset.triedFallback) {
+            img.dataset.triedFallback = '1';
+            img.src = 'https://lh3.googleusercontent.com/d/' + curId;
+          } else {
+            img.style.display = 'none';
+          }
+        });
+      }
+    });
+  }
+
+  function cleanObj(obj) {
+    if (!obj || typeof obj !== 'object') return obj;
+    var c = Object.assign({}, obj);
+    ['pdfData', 'imageData', 'imageBase64', 'fileData'].forEach(function (k) { delete c[k]; });
+    if (c.image && String(c.image).indexOf('data:image') === 0) c.image = '';
+    normalizeItemMedia(c);
+    return c;
+  }
+
+  function safeKey(str) {
+    return String(str || '').replace(/[.#$\[\]\/]/g, '_');
+  }
+
+  function renderUI() {
+    normalizeAllDBMedia();
+    if (typeof db !== 'undefined') window.db = db;
+    try { if (typeof renderLessons === 'function') renderLessons(); } catch (e) {}
+    try { if (typeof renderMaterialAdmin === 'function') renderMaterialAdmin(); } catch (e) {}
+    try { if (typeof renderStudentJournals === 'function') renderStudentJournals(); } catch (e) {}
+    try { if (typeof initTeacher === 'function') initTeacher(); } catch (e) {}
+    try { if (typeof renderTeacherCharts === 'function') renderTeacherCharts(); } catch (e) {}
+    try { if (typeof renderQuizPackageList === 'function') renderQuizPackageList(); } catch (e) {}
+    try { if (typeof renderAssessmentTable === 'function') renderAssessmentTable(); } catch (e) {}
+    try { if (typeof renderPraktis === 'function') renderPraktis(); } catch (e) {}
+    try { if (typeof renderHotNews === 'function') renderHotNews(); } catch (e) {}
+    try { if (typeof renderPortfolioAdmin === 'function') renderPortfolioAdmin(); } catch (e) {}
+    try { if (typeof renderStudentPortfolio === 'function') renderStudentPortfolio(); } catch (e) {}
+    try { if (typeof updateHotNewsBadge === 'function') updateHotNewsBadge(); } catch (e) {}
+    try { if (typeof updateTugasBadge === 'function') updateTugasBadge(); } catch (e) {}
+    setTimeout(fixBrokenImagesInDOM, 60);
+  }
+
+  function persistLocal() {
+    if (typeof db === 'undefined') return;
+    try {
+      var lite = JSON.parse(JSON.stringify(db));
+      (lite.materials || []).forEach(function (m) { delete m.pdfData; delete m.imageData; delete m.fileData; });
+      (lite.portfolioSubmissions || []).forEach(function (x) { delete x.fileData; });
+      localStorage.setItem('epai_offline_v1', JSON.stringify(lite));
+    } catch (e) {}
+  }
+
+  function pushToFirebase() {
+    if (!rtdb || !navigator.onLine || typeof db === 'undefined' || isApplyingRemote) return;
+    normalizeAllDBMedia();
+    var payload = {
+      journals: {},
+      assessments: {},
+      materials: {},
+      praktis: {},
+      hotnews: {},
+      quizzes: {},
+      quizAttempts: {},
+      students: {},
+      portfolios: {},
+      portfolioSubmissions: {},
+      marqueeText: localStorage.getItem('epai_marquee_text') || ''
+    };
+
+    (db.journals || []).forEach(function (j) {
+      if (j && j.username && j.date) payload.journals[safeKey(j.username + '_' + j.date)] = cleanObj(j);
+    });
+    (db.assessments || []).forEach(function (a, idx) {
+      var k = a.id || (a.username + '_' + a.item + '_' + idx);
+      if (a && a.username) payload.assessments[safeKey(k)] = cleanObj(a);
+    });
+    (db.materials || []).forEach(function (m) {
+      var k = m.id || m._mid || ('m_' + m.kelas + '_' + m.semester + '_' + m.chapter);
+      if (m) { m.id = k; payload.materials[safeKey(k)] = cleanObj(m); }
+    });
+    (db.praktis || []).forEach(function (p) {
+      if (p && p.id) payload.praktis[safeKey(p.id)] = cleanObj(p);
+    });
+    (db.hotnews || []).forEach(function (h) {
+      if (h && h.id) payload.hotnews[safeKey(h.id)] = cleanObj(h);
+    });
+    (db.quizzes || []).forEach(function (q) {
+      if (q && q.id) payload.quizzes[safeKey(q.id)] = cleanObj(q);
+    });
+    (db.quizAttempts || []).forEach(function (qa) {
+      if (qa && qa.id) payload.quizAttempts[safeKey(qa.id)] = cleanObj(qa);
+    });
+    (db.students || []).forEach(function (s) {
+      if (s && s.u) payload.students[safeKey(s.u)] = s;
+    });
+    (db.portfolios || []).forEach(function (pt) {
+      if (pt && pt.id) payload.portfolios[safeKey(pt.id)] = cleanObj(pt);
+    });
+    (db.portfolioSubmissions || []).forEach(function (ps) {
+      if (ps && ps.id) payload.portfolioSubmissions[safeKey(ps.id)] = cleanObj(ps);
+    });
+
+    rtdb.ref('epaibp').update(payload).catch(function (err) {
+      console.warn('[Firebase Sync Error]', err);
+    });
+  }
+
+  function scheduleSync() {
+    clearTimeout(syncTimer);
+    syncTimer = setTimeout(pushToFirebase, 500);
+  }
+
+  function listenFirebase() {
+    if (!rtdb) return;
+    rtdb.ref('epaibp').on('value', function (snap) {
+      var val = snap.val();
+      if (!val || typeof db === 'undefined') return;
+
+      isApplyingRemote = true;
+      try {
+        var toArr = function (obj) { return obj ? Object.keys(obj).map(function (k) { return obj[k]; }) : []; };
+
+        if (val.journals) db.journals = toArr(val.journals);
+        if (val.assessments) db.assessments = toArr(val.assessments);
+        if (val.materials) db.materials = toArr(val.materials);
+        if (val.praktis) db.praktis = toArr(val.praktis);
+        if (val.hotnews) db.hotnews = toArr(val.hotnews);
+        if (val.quizzes) db.quizzes = toArr(val.quizzes);
+        if (val.quizAttempts) db.quizAttempts = toArr(val.quizAttempts);
+        if (val.portfolios) db.portfolios = toArr(val.portfolios);
+        if (val.portfolioSubmissions) db.portfolioSubmissions = toArr(val.portfolioSubmissions);
+        if (val.students) {
+          var stArr = toArr(val.students);
+          if (stArr.length) {
+            db.students = stArr;
+            if (typeof fillStudentSelect === 'function') fillStudentSelect();
+            if (typeof refreshStudentCounts === 'function') refreshStudentCounts();
+          }
+        }
+        if (typeof val.marqueeText === 'string' && val.marqueeText) {
+          localStorage.setItem('epai_marquee_text', val.marqueeText);
+          if (typeof loadMarqueeText === 'function') loadMarqueeText();
+        }
+
+        normalizeAllDBMedia();
+        persistLocal();
+        renderUI();
+      } finally {
+        isApplyingRemote = false;
+      }
+    });
+  }
+
+  var origSaveDB = window.saveDB;
+  window.saveDB = function () {
+    normalizeAllDBMedia();
+    if (typeof origSaveDB === 'function') origSaveDB();
+    setTimeout(fixBrokenImagesInDOM, 60);
+    scheduleSync();
+  };
+
+  window.deleteMaterialById = function (mid) {
+    if (!confirm('Hapus materi ini?')) return;
+    db.materials = (db.materials || []).filter(function (m) {
+      return !(m && (String(m.id) === String(mid) || String(m._mid) === String(mid)));
+    });
+    if (typeof origSaveDB === 'function') origSaveDB();
+    if (rtdb && mid) rtdb.ref('epaibp/materials/' + safeKey(mid)).remove();
+    renderUI();
+    if (typeof showToast === 'function') showToast('Materi dihapus', 'success');
+  };
+  window.deleteMaterialByKey = function (a, b, c, mid) { return window.deleteMaterialById(mid); };
+
+  window.deletePraktis = function (id) {
+    if (!confirm('Hapus item ini?')) return;
+    db.praktis = (db.praktis || []).filter(function (x) { return x.id !== id; });
+    if (typeof origSaveDB === 'function') origSaveDB();
+    if (rtdb && id) rtdb.ref('epaibp/praktis/' + safeKey(id)).remove();
+    renderUI();
+  };
+
+  window.deleteHotNews = function (id) {
+    if (!confirm('Hapus Hot News ini?')) return;
+    db.hotnews = (db.hotnews || []).filter(function (x) { return x.id !== id; });
+    if (typeof origSaveDB === 'function') origSaveDB();
+    if (rtdb && id) rtdb.ref('epaibp/hotnews/' + safeKey(id)).remove();
+    renderUI();
+  };
+
+  window.deleteQuizPackage = function (id) {
+    if (!confirm('Hapus paket soal ini?')) return;
+    db.quizzes = (db.quizzes || []).filter(function (q) { return q.id !== id; });
+    if (typeof origSaveDB === 'function') origSaveDB();
+    if (rtdb && id) rtdb.ref('epaibp/quizzes/' + safeKey(id)).remove();
+    renderUI();
+  };
+
+  window.deletePortfolioTask = function (id) {
+    if (!confirm('Hapus tugas portofolio ini?')) return;
+    window.db.portfolios = (window.db.portfolios || []).filter(function (p) { return p.id !== id; });
+    if (typeof origSaveDB === 'function') origSaveDB();
+    if (rtdb) rtdb.ref('epaibp/portfolios/' + safeKey(id)).remove();
+    renderUI();
+  };
+
+  window.deletePortfolioSubmission = function (subId) {
+    if (!confirm('Hapus kiriman ini?')) return;
+    window.db.portfolioSubmissions = (window.db.portfolioSubmissions || []).filter(function (s) { return s.id !== subId; });
+    if (typeof origSaveDB === 'function') origSaveDB();
+    if (rtdb) rtdb.ref('epaibp/portfolioSubmissions/' + safeKey(subId)).remove();
+    var view = document.getElementById('portfolioSubmissionsView');
+    if (view) view.innerHTML = '';
+    alert('Kiriman dihapus');
+  };
+
+  window.openStudentPortfolioForm = function (portId) {
+    var form = document.getElementById('studentPortfolioForm');
+    if (!form) return;
+    var port = (window.db.portfolios || []).find(function (p) { return p.id === portId; });
+    if (!port) return;
+    form.classList.remove('hidden');
+    form.innerHTML =
+      '<h4>' + (port.title || 'Tugas Portofolio') + '</h4>' +
+      '<label>Jawaban / Keterangan Singkat</label>' +
+      '<textarea id="portSubmitText" rows="3" placeholder="Tulis keterangan atau jawaban..."></textarea>' +
+      '<label>Pilih File Tugas (Foto JPG/PNG atau PDF, Maks 2MB)</label>' +
+      '<input type="file" id="portSubmitFile" accept="image/jpeg,image/png,application/pdf">' +
+      '<label>Atau Tempel Link Google Drive (Opsional jika sudah pilih file)</label>' +
+      '<input type="url" id="portSubmitLink" placeholder="https://drive.google.com/...">' +
+      '<button type="button" id="btnKirimPortofolio" onclick="submitPortfolioWithDrive(\'' + portId + '\')">📤 Kirim Tugas Portofolio</button>';
+  };
+
+  window.submitPortfolioWithDrive = async function (portId) {
+    var textEl = document.getElementById('portSubmitText');
+    var linkEl = document.getElementById('portSubmitLink');
+    var fileEl = document.getElementById('portSubmitFile');
+
+    var text = textEl ? (textEl.value || '').trim() : '';
+    var link = linkEl ? (linkEl.value || '').trim() : '';
+    var file = (fileEl && fileEl.files && fileEl.files[0]) ? fileEl.files[0] : null;
+
+    if (!text && !link && !file) {
+      alert('Isi jawaban teks, pilih file JPG/PDF, atau tempel Link Google Drive terlebih dahulu!');
+      return;
+    }
+
+    var btn = document.getElementById('btnKirimPortofolio');
+    if (btn) { btn.disabled = true; btn.textContent = '⏳ Mengunggah & Menyimpan...'; }
+
+    try {
+      if (file) {
+        if (file.size > 2.5 * 1024 * 1024) {
+          throw new Error('Ukuran file maksimal 2MB! Kompres foto/PDF terlebih dahulu.');
+        }
+        var base64Data = await new Promise(function (resolve, reject) {
+          var reader = new FileReader();
+          reader.onload = function () {
+            var parts = String(reader.result || '').split(',');
+            resolve(parts[1] || '');
+          };
+          reader.onerror = function () { reject(new Error('Gagal membaca file')); };
+          reader.readAsDataURL(file);
+        });
+        var kls = (window.current && window.current.kelas) || 'Kelas';
+        var nama = (window.current && window.current.name) || 'Siswa';
+        var cleanFileName = kls + '_' + nama.replace(/\s+/g, '_') + '_' + file.name;
+        var res = await fetch(DRIVE_UPLOAD_WEBAPP_URL, {
+          method: 'POST',
+          body: JSON.stringify({
+            base64: base64Data,
+            mimeType: file.type || 'application/octet-stream',
+            fileName: cleanFileName
+          })
+        });
+        var json = await res.json();
+        if (json.status !== 'ok' || !json.url) {
+          throw new Error(json.message || 'Gagal mengunggah file ke Google Drive.');
+        }
+        link = json.url;
+      }
+
+      var item = {
+        id: 'psub_' + Date.now(),
+        portfolioId: portId,
+        username: (window.current && window.current.username) || '',
+        name: (window.current && window.current.name) || '',
+        kelas: (window.current && window.current.kelas) || '',
+        text: text,
+        link: link,
+        fileName: file ? file.name : '',
+        submittedAt: Date.now()
+      };
+      var list = (window.db.portfolioSubmissions || []).filter(function (s) {
+        return !(s.portfolioId === portId && s.username === item.username);
+      });
+      list.push(item);
+      window.db.portfolioSubmissions = list;
+      if (typeof saveDB === 'function') saveDB();
+
+      var form = document.getElementById('studentPortfolioForm');
+      if (form) form.classList.add('hidden');
+      if (typeof renderStudentPortfolio === 'function') renderStudentPortfolio();
+      alert('Tugas portofolio berhasil dikirim & tersimpan ke Google Drive!');
+    } catch (err) {
+      alert(err.message || 'Terjadi kesalahan saat mengirim tugas.');
+    } finally {
+      if (btn) { btn.disabled = false; btn.textContent = '📤 Kirim Tugas Portofolio'; }
+    }
+  };
+
+  function initFirebase() {
+    ensureBadge();
+    normalizeAllDBMedia();
+    fixBrokenImagesInDOM();
+    try {
+      if (typeof firebase !== 'undefined' && !firebase.apps.length) {
+        firebase.initializeApp(firebaseConfig);
+      }
+      if (typeof firebase !== 'undefined') {
+        rtdb = firebase.database();
+        listenFirebase();
+      }
+    } catch (e) {
+      console.warn('Firebase init error:', e);
+    }
+    updateBadge();
+  }
+
+  window.addEventListener('online', updateBadge);
+  window.addEventListener('offline', updateBadge);
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initFirebase);
+  } else {
+    initFirebase();
+  }
+})();
+</script>
+
