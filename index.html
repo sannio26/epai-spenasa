@@ -8054,7 +8054,7 @@ try { onLoginRoleChange(); } catch (e) {}
 
 
 
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<!-- Supabase dimatikan: sinkron sekarang lewat Firebase -->
 <script>
 /* E-PAIBP Supabase Realtime v2 — lapisan sinkronisasi saja; UI utama tidak diubah. */
 (function () {
@@ -8073,6 +8073,7 @@ try { onLoginRoleChange(); } catch (e) {}
   var badge = null;
 
   function ensureBadge() {
+    return; /* badge Supabase dimatikan, pakai badge Firebase */
     if (badge || !document.body) return;
     badge = document.createElement('div');
     badge.id = 'epaiRealtimeStatus';
@@ -9242,7 +9243,7 @@ window.bersihDobek = function(){}; // matikan patch lama yang bikin dobel
         createdAt: Date.now()
       };
 
-      if(window.sb && navigator.onLine){
+      if(false && window.sb){
         var clean = Object.assign({}, item);
         delete clean.pdfData;
         var row = {
@@ -9496,7 +9497,7 @@ window.bersihDobek = function(){}; // matikan patch lama yang bikin dobel
     }
 
     // langsung upsert ke Supabase
-    if(window.sb && navigator.onLine){
+    if(false && window.sb){
       try{
         var row = {
           id: MARQUEE_ID,
@@ -10021,7 +10022,8 @@ window.bersihDobek = function(){}; // matikan patch lama yang bikin dobel
     if (!rtdb) return;
     rtdb.ref('epaibp').on('value', function (snap) {
       var val = snap.val();
-      if (!val || typeof db === 'undefined') return;
+      if (typeof db === 'undefined') return;
+      if (!val) { pushToFirebase(); return; }
 
       isApplyingRemote = true;
       try {
@@ -10233,7 +10235,13 @@ window.bersihDobek = function(){}; // matikan patch lama yang bikin dobel
     updateBadge();
   }
 
-  window.addEventListener('online', updateBadge);
+  window.epaiFirebaseSync = scheduleSync;
+  var origSetItem = Storage.prototype.setItem;
+  Storage.prototype.setItem = function (k, v) {
+    origSetItem.call(this, k, v);
+    if (k === 'epai_marquee_text' && !isApplyingRemote) scheduleSync();
+  };
+  window.addEventListener('online', function () { updateBadge(); scheduleSync(); });
   window.addEventListener('offline', updateBadge);
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', initFirebase);
